@@ -30,9 +30,9 @@ func ensureDisk(ctx context.Context, instName, instDir string, y *yaml.MacVZYaml
 }
 
 func Start(ctx context.Context, inst *store.Instance) error {
-	screenFile := filepath.Join(inst.Dir, filenames.VZScreen)
-	if _, err := os.Stat(screenFile); !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("instance %q seems running (hint: remove %q if the instance is not actually running)", inst.Name, screenFile)
+	vzPid := filepath.Join(inst.Dir, filenames.VZPid)
+	if _, err := os.Stat(vzPid); !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("instance %q seems running (hint: remove %q if the instance is not actually running)", inst.Name, vzPid)
 	}
 
 	y, err := inst.LoadYAML()
@@ -86,7 +86,7 @@ func Start(ctx context.Context, inst *store.Instance) error {
 		return err
 	}
 
-	if err := waitHostAgentStart(ctx, screenFile, haStderrPath); err != nil {
+	if err := waitHostAgentStart(ctx, vzPid, haStderrPath); err != nil {
 		return err
 	}
 

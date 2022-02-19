@@ -7,6 +7,9 @@ import (
 	"github.com/docker/go-units"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"syscall"
 )
 
 type Status = string
@@ -26,8 +29,8 @@ type Instance struct {
 	Memory int64  `json:"memory,omitempty"` // bytes
 	Disk   int64  `json:"disk,omitempty"`   // bytes
 
-	VZScreen int     `json:"VZScreen,omitempty"`
-	Errors   []error `json:"errors,omitempty"`
+	VZPid  int     `json:"VZPid,omitempty"`
+	Errors []error `json:"errors,omitempty"`
 }
 
 func (inst *Instance) LoadYAML() (*yaml.MacVZYaml, error) {
@@ -70,13 +73,15 @@ func Inspect(instName string) (*Instance, error) {
 		inst.Disk = disk
 	}
 
-	screen := filepath.Join(instDir, filenames.VZScreen)
-	_, err = os.Stat(screen)
+	vzPidFile := filepath.Join(instDir, filenames.VZPid)
+	inst.VZPid, err = ReadPIDFile(vzPidFile)
+
+	_, err = os.Stat(vzPidFile)
 
 	if inst.Status == StatusUnknown {
-		if err == nil {
+		if inst.VZPid > 0 && err == nil {
 			inst.Status = StatusRunning
-		} else if err != nil {
+		} else if inst.VZPid == 0 {
 			inst.Status = StatusStopped
 		}
 	}
@@ -90,4 +95,35 @@ type FormatData struct {
 	HostArch     string
 	LimaHome     string
 	IdentityFile string
+}
+
+func ReadPIDFile(path string) (int, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil {
+		return 0, err
+	}
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return 0, err
+	}
+	err = proc.Signal(syscall.Signal(0))
+	if err != nil {
+		if errors.Is(err, os.ErrProcessDone) {
+			_ = os.Remove(path)
+			return 0, nil
+		}
+		// We may not have permission to send the signal (e.g. to network daemon running as root).
+		// But if we get a permissions error, it means the process is still running.
+		if !errors.Is(err, os.ErrPermission) {
+			return 0, err
+		}
+	}
+	return pid, nil
 }

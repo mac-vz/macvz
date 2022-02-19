@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -204,7 +205,7 @@ func Run(cfg Config) error {
 	vm := vz.NewVirtualMachine(config)
 
 	sigintCh := make(chan os.Signal, 1)
-	signal.Notify(sigintCh, os.Interrupt)
+	signal.Notify(sigintCh, os.Interrupt, os.Kill)
 
 	errCh := make(chan error, 1)
 
@@ -227,6 +228,19 @@ func Run(cfg Config) error {
 			logrus.Println("recieved signal", result)
 		case newState := <-vm.StateChangedNotify():
 			if newState == vz.VirtualMachineStateRunning {
+				pidFile := filepath.Join(cfg.InstanceDir, filenames.VZPid)
+				if err != nil {
+					return err
+				}
+				if pidFile != "" {
+					if _, err := os.Stat(pidFile); !errors.Is(err, os.ErrNotExist) {
+						return fmt.Errorf("pidfile %q already exists", pidFile)
+					}
+					if err := os.WriteFile(pidFile, []byte(strconv.Itoa(os.Getpid())+"\n"), 0644); err != nil {
+						return err
+					}
+					defer os.RemoveAll(pidFile)
+				}
 				logrus.Println("start VM is running")
 			}
 			if newState == vz.VirtualMachineStateStopped {

@@ -55,7 +55,8 @@ func newApp() *cobra.Command {
 	rootCmd.AddCommand(
 		newStartCommand(),
 		newVZCommand(),
-		//newStopCommand(),
+		newShellCommand(),
+		newStopCommand(),
 	)
 	return rootCmd
 }

@@ -13,11 +13,16 @@ func newVZCommand() *cobra.Command {
 		Use:               "vz NAME",
 		Short:             fmt.Sprintf("Start a VM based on the name of macvz instance"),
 		Args:              cobra.MaximumNArgs(1),
-		ValidArgsFunction: startBashComplete,
+		ValidArgsFunction: vzBashComplete,
 		RunE:              vzAction,
 	}
 
 	return vzCommand
+}
+
+func vzBashComplete(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	instances, _ := bashCompleteInstanceNames(cmd)
+	return instances, cobra.ShellCompDirectiveDefault
 }
 
 func vzAction(cmd *cobra.Command, args []string) error {

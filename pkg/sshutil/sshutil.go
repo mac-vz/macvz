@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/balaji113/macvz/pkg/osutil"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -114,6 +115,37 @@ var sshInfo struct {
 	aesAccelerated bool
 	// openSSHVersion is set to the version of OpenSSH, or semver.New("0.0.0") if the version cannot be determined.
 	openSSHVersion semver.Version
+}
+
+// SSHOpts adds the following options to CommonOptions: User, ControlMaster, ControlPath, ControlPersist
+func SSHOpts(instDir string, useDotSSH, forwardAgent bool) ([]string, error) {
+	u, err := osutil.MacVZUser(false)
+	if err != nil {
+		return nil, err
+	}
+	opts, err := CommonOpts(useDotSSH)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts,
+		fmt.Sprintf("User=%s", u.Username), // guest and host have the same username, but we should specify the username explicitly (#85)
+		"ControlMaster=auto",
+		"ControlPersist=5m",
+	)
+	if forwardAgent {
+		opts = append(opts, "ForwardAgent=yes")
+	}
+	return opts, nil
+}
+
+// SSHArgsFromOpts returns ssh args from opts.
+// The result always contains {"-F", "/dev/null} in additon to {"-o", "KEY=VALUE", ...}.
+func SSHArgsFromOpts(opts []string) []string {
+	args := []string{"-F", "/dev/null"}
+	for _, o := range opts {
+		args = append(args, "-o", o)
+	}
+	return args
 }
 
 // CommonOpts returns ssh option key-value pairs like {"IdentityFile=/path/to/id_foo"}.

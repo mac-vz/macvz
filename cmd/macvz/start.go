@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -100,12 +99,6 @@ func loadOrCreateInstance(cmd *cobra.Command, args []string) (*store.Instance, e
 		if inst, err := store.Inspect(instName); err == nil {
 			logrus.Infof("Using the existing instance %q", instName)
 
-			interfaces, _ := net.Interfaces()
-			for _, inter := range interfaces {
-				logrus.Println("Interface", inter.HardwareAddr)
-				addrs, _ := inter.Addrs()
-				logrus.Println("Interface address", addrs)
-			}
 			return inst, nil
 		} else {
 			if !errors.Is(err, os.ErrNotExist) {

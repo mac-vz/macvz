@@ -31,7 +31,7 @@ const (
 	BaseDisk    = "basedisk"
 	Kernel      = "vmlinux"
 	Initrd      = "initrd"
-	VZScreen    = "vz.screen"
+	VZPid       = "macvz.pid"
 	VZStdoutLog = "vz.stdout.log"
 	VZStderrLog = "vz.stderr.log"
 )
