@@ -113,20 +113,11 @@ func shellAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	arpCmd := exec.CommandContext(cmd.Context(), "/bin/sh", "-c", fmt.Sprintf("arp -a | grep -w -i '%s' | awk '{print $2}'", *y.MACAddress))
-	logrus.Println("Command done")
-
-	output, err := arpCmd.Output()
+	ipAddress, err := osutil.GetIPFromMac(cmd.Context(), *y.MACAddress)
 	if err != nil {
 		return err
 	}
 
-	s := string(output)
-
-	s = strings.Replace(s, "(", "", 1)
-	s = strings.Replace(s, ")", "", 1)
-	s = strings.Replace(s, "\n", "", 1)
-	logrus.Println("IP Address for MAC", s)
 	u, err := osutil.MacVZUser(true)
 
 	sshOpts, err := sshutil.SSHOpts(inst.Dir, true, false)
@@ -145,18 +136,16 @@ func shellAction(cmd *cobra.Command, args []string) error {
 	}
 	sshArgs = append(sshArgs, []string{
 		"-q",
-		fmt.Sprintf("%s@%s", u.Username, s),
+		fmt.Sprintf("%s@%s", u.Username, ipAddress),
 		"--",
 		script,
 	}...)
-	logrus.Println("SSHArgs", sshArgs)
 	sshCmd := exec.Command(arg0, sshArgs...)
 	sshCmd.Stdin = os.Stdin
 	sshCmd.Stdout = os.Stdout
 	sshCmd.Stderr = os.Stderr
 	logrus.Debugf("executing ssh (may take a long)): %+v", sshCmd.Args)
 
-	// TODO: use syscall.Exec directly (results in losing tty?)
 	return sshCmd.Run()
 }
 
