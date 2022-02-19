@@ -1,0 +1,51 @@
+# ===================================================================== #
+# BASIC CONFIGURATION
+# ===================================================================== #
+
+# Default values are specified by `null` instead of the builtin default value,
+# so they can be overridden by the default.yaml mechanism documented at the
+# end of this file.
+
+# Arch: "default", "x86_64", "aarch64".
+# Default: "default" (corresponds to the host architecture)
+arch: null
+
+# An image must support systemd and cloud-init.
+# Ubuntu and Fedora are known to work.
+# Default: none (must be specified)
+images:
+- kernal: ""
+  initram: ""
+  base: ""
+  arch: "x86_64"
+- kernal: ""
+  initram: ""
+  base: ""
+  arch: "aarch64"
+
+# CPUs: if you see performance issues, try limiting cpus to 1.
+# Default: 4
+cpus: null
+
+# Memory size
+# Default: "4GiB"
+memory: null
+
+# Disk size
+# Default: "100GiB"
+disk: null
+
+# Expose host directories to the guest, the mount point might be accessible from all UIDs in the guest
+# Default: null
+mounts:
+- location: "~"
+  # CAUTION: `writable` SHOULD be false for the home directory.
+  # Setting `writable` to true is possible, but untested and dangerous.
+  # Default: false
+  writable: null
+- location: "/tmp/lima"
+  writable: true
+
+# ===================================================================== #
+# END OF TEMPLATE
+# ===================================================================== #

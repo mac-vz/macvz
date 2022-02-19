@@ -1,0 +1,22 @@
+#cloud-config
+# vim:syntax=yaml
+bootcmd:
+  - apt remove -y irqbalance
+users:
+  - default
+  - name: "{{.User}}"
+    uid: "{{.UID}}"
+    homedir: "/home/{{.User}}.linux"
+    shell: /bin/bash
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    lock_passwd: true
+    ssh-authorized-keys:
+    {{- range $val := .SSHPubKeys}}
+      - "{{$val}}"
+    {{- end}}
+network:
+    version: 2
+    renderer: networkd
+    ethernets:
+        enp0s1:
+            dhcp4: true

@@ -1,0 +1,8 @@
+images:
+- kernel: "https://cloud-images.ubuntu.com/releases/focal/release/unpacked/ubuntu-20.04-server-cloudimg-amd64-vmlinuz-generic"
+  initram: "https://cloud-images.ubuntu.com/releases/focal/release/unpacked/ubuntu-20.04-server-cloudimg-amd64-initrd-generic"
+  base: "https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-amd64.tar.gz"
+  arch: "x86_64"
+mounts:
+- location: "/Users/balaji"
+  writable: true
