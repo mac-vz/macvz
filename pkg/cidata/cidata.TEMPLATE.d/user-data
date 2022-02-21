@@ -3,7 +3,6 @@
 bootcmd:
   - apt remove -y irqbalance
 users:
-  - default
   - name: "{{.User}}"
     uid: "{{.UID}}"
     homedir: "/home/{{.User}}.linux"
@@ -14,6 +13,19 @@ users:
     {{- range $val := .SSHPubKeys}}
       - "{{$val}}"
     {{- end}}
+write_files:
+ - content: |
+      #!/bin/sh
+      set -eux
+      MACVZ_CIDATA_MNT="/mnt/cidata"
+      MACVZ_CIDATA_DEV="/dev/disk/by-label/cidata"
+      mkdir -p -m 700 "${MACVZ_CIDATA_MNT}"
+      mount -o ro,mode=0700,dmode=0700,overriderockperm,exec,uid=0 "${MACVZ_CIDATA_DEV}" "${MACVZ_CIDATA_MNT}"
+      export MACVZ_CIDATA_MNT
+      exec "${MACVZ_CIDATA_MNT}"/boot.sh
+   owner: root:root
+   path: /var/lib/cloud/scripts/per-boot/00-lima.boot.sh
+   permissions: '0755'
 network:
     version: 2
     renderer: networkd

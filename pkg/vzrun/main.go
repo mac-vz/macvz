@@ -15,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strconv"
@@ -83,6 +84,18 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 				len(cfg.LimaYAML.Images), errs)
 		}
 	}
+
+	bytes, _ := units.RAMInBytes(*cfg.LimaYAML.Disk)
+	logrus.Println("Bytes", bytes)
+	command := exec.CommandContext(ctx, "/bin/dd", "if=/dev/null", "of="+baseDisk, "bs=1", "count=0",
+		"seek="+strconv.FormatInt(bytes, 10))
+	err := command.Run()
+
+	if err != nil {
+		logrus.Println("Error during resize", err.Error())
+		return err
+	}
+	logrus.Println("Resized")
 
 	return nil
 }

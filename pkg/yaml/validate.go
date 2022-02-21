@@ -86,5 +86,15 @@ func Validate(y MacVZYaml, warn bool) error {
 			return fmt.Errorf("field `mounts[%d].location` refers to a non-directory path: %q: %w", i, f.Location, err)
 		}
 	}
+
+	for i, p := range y.Provision {
+		switch p.Mode {
+		case ProvisionModeSystem, ProvisionModeUser:
+		default:
+			return fmt.Errorf("field `provision[%d].mode` must be either %q or %q",
+				i, ProvisionModeSystem, ProvisionModeUser)
+		}
+	}
+
 	return nil
 }

@@ -7,6 +7,8 @@ type MacVZYaml struct {
 	Disk       *string `yaml:"disk,omitempty" json:"disk,omitempty"`     // go-units.RAMInBytes
 	Mounts     []Mount `yaml:"mounts,omitempty" json:"mounts,omitempty"`
 	MACAddress *string `yaml:"MACAddress,omitempty" json:"MACAddress,omitempty"`
+
+	Provision []Provision `yaml:"provision,omitempty" json:"provision,omitempty"`
 }
 
 type Image struct {
@@ -26,4 +28,16 @@ const (
 type Mount struct {
 	Location string `yaml:"location" json:"location"` // REQUIRED
 	Writable *bool  `yaml:"writable,omitempty" json:"writable,omitempty"`
+}
+
+type ProvisionMode = string
+
+const (
+	ProvisionModeSystem ProvisionMode = "system"
+	ProvisionModeUser   ProvisionMode = "user"
+)
+
+type Provision struct {
+	Mode   ProvisionMode `yaml:"mode" json:"mode"` // default: "system"
+	Script string        `yaml:"script" json:"script"`
 }

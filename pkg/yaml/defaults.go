@@ -51,6 +51,15 @@ func FillDefault(y, d, o *MacVZYaml, filePath string) {
 	if y.MACAddress == nil || *y.MACAddress == "" {
 		y.MACAddress = pointer.String(vz.NewRandomLocallyAdministeredMACAddress().String())
 	}
+
+	y.Provision = append(append(o.Provision, y.Provision...), d.Provision...)
+	for i := range y.Provision {
+		provision := &y.Provision[i]
+		if provision.Mode == "" {
+			provision.Mode = ProvisionModeSystem
+		}
+	}
+
 	// Combine all mounts; highest priority entry determines writable status.
 	// Only works for exact matches; does not normalize case or resolve symlinks.
 	mounts := make([]Mount, 0, len(d.Mounts)+len(y.Mounts)+len(o.Mounts))

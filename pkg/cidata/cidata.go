@@ -6,6 +6,7 @@ import (
 	"github.com/balaji113/macvz/pkg/sshutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/balaji113/macvz/pkg/iso9660util"
@@ -62,6 +63,28 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 	layout, err := ExecuteTemplate(args)
 	if err != nil {
 		return err
+	}
+
+	var sb strings.Builder
+	for _, mount := range y.Mounts {
+		sb.WriteString(fmt.Sprintf("sudo mkdir -p %s\n", mount.Location))
+		sb.WriteString(fmt.Sprintf("sudo mount -t virtiofs %s %s", mount.Location, mount.Location))
+	}
+	layout = append(layout, iso9660util.Entry{
+		Path:   fmt.Sprintf("provision.%s/%08d", yaml.ProvisionModeSystem, 0),
+		Reader: strings.NewReader(sb.String()),
+	})
+
+	for i, f := range y.Provision {
+		switch f.Mode {
+		case yaml.ProvisionModeSystem, yaml.ProvisionModeUser:
+			layout = append(layout, iso9660util.Entry{
+				Path:   fmt.Sprintf("provision.%s/%08d", f.Mode, i+1),
+				Reader: strings.NewReader(f.Script),
+			})
+		default:
+			return fmt.Errorf("unknown provision mode %q", f.Mode)
+		}
 	}
 
 	return iso9660util.Write(filepath.Join(instDir, filenames.CIDataISO), "cidata", layout)
