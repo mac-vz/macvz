@@ -21,6 +21,11 @@ func GetIPFromMac(ctx context.Context, mac string) (string, error) {
 	return s, nil
 }
 
+/*
+This is needed because arp -a will strip the mac with trailing 0
+Eg: 04:95:e6:69:ba:80 will be 4:95:e6:69:ba:80
+	01:00:5e:00:00:fb will be 1:0:5e:0:0:fb
+*/
 func processMacAddress(mac string) string {
 	parts := strings.Split(mac, ":")
 	for i, part := range parts {
