@@ -22,4 +22,18 @@ References used in the project,
 - Run `make all` to compile and build binary
 - Run `make install` to install the binary to /usr/local
 
+## Using macvz
+To start a vm, run the following command
+```
+macvz start https://raw.githubusercontent.com/balajiv113/macvz/main/examples/docker.yaml //To start based on example template
+```
 
+To get shell access to a running VM,
+```
+macvz shell docker
+```
+
+To stop a running VM,
+```
+macvz stop docker
+```
