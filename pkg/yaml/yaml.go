@@ -9,6 +9,7 @@ type MacVZYaml struct {
 	MACAddress *string `yaml:"MACAddress,omitempty" json:"MACAddress,omitempty"`
 
 	Provision []Provision `yaml:"provision,omitempty" json:"provision,omitempty"`
+	Probes    []Probe     `yaml:"probes,omitempty" json:"probes,omitempty"`
 }
 
 type Image struct {
@@ -40,4 +41,17 @@ const (
 type Provision struct {
 	Mode   ProvisionMode `yaml:"mode" json:"mode"` // default: "system"
 	Script string        `yaml:"script" json:"script"`
+}
+
+type ProbeMode = string
+
+const (
+	ProbeModeReadiness ProbeMode = "readiness"
+)
+
+type Probe struct {
+	Mode        ProbeMode // default: "readiness"
+	Description string
+	Script      string
+	Hint        string
 }

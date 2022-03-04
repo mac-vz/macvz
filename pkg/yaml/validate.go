@@ -96,5 +96,14 @@ func Validate(y MacVZYaml, warn bool) error {
 		}
 	}
 
+	for i, p := range y.Probes {
+		switch p.Mode {
+		case ProbeModeReadiness:
+		default:
+			return fmt.Errorf("field `probe[%d].mode` can only be %q",
+				i, ProbeModeReadiness)
+		}
+	}
+
 	return nil
 }

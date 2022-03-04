@@ -25,7 +25,7 @@ import (
 type Config struct {
 	Name        string
 	InstanceDir string
-	LimaYAML    *yaml.MacVZYaml
+	MacVZYaml   *yaml.MacVZYaml
 }
 
 func downloadImage(disk string, remote string) error {
@@ -54,8 +54,8 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 
 	if _, err := os.Stat(baseDisk); errors.Is(err, os.ErrNotExist) {
 		var ensuredRequiredImages bool
-		errs := make([]error, len(cfg.LimaYAML.Images))
-		for i, f := range cfg.LimaYAML.Images {
+		errs := make([]error, len(cfg.MacVZYaml.Images))
+		for i, f := range cfg.MacVZYaml.Images {
 			err := downloadImage(kernel, f.Kernel)
 			if err != nil {
 				errs[i] = fmt.Errorf("failed to download required images: %w", err)
@@ -71,7 +71,13 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 				errs[i] = fmt.Errorf("failed to download required images: %w", err)
 				continue
 			}
-			err = iso9660util.Extract(BaseDiskZip, "focal-server-cloudimg-amd64.img", baseDisk)
+			fileName := ""
+			if f.Arch == yaml.X8664 {
+				fileName = "amd64"
+			} else {
+				fileName = "arm64"
+			}
+			err = iso9660util.Extract(BaseDiskZip, "focal-server-cloudimg-"+fileName+".img", baseDisk)
 			if err != nil {
 				errs[i] = fmt.Errorf("failed to extract base image: %w", err)
 			}
@@ -81,11 +87,11 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 		}
 		if !ensuredRequiredImages {
 			return fmt.Errorf("failed to download the required images, attempted %d candidates, errors=%v",
-				len(cfg.LimaYAML.Images), errs)
+				len(cfg.MacVZYaml.Images), errs)
 		}
 	}
 
-	bytes, _ := units.RAMInBytes(*cfg.LimaYAML.Disk)
+	bytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
 	logrus.Println("Bytes", bytes)
 	command := exec.CommandContext(ctx, "/bin/dd", "if=/dev/null", "of="+baseDisk, "bs=1", "count=0",
 		"seek="+strconv.FormatInt(bytes, 10))
@@ -115,7 +121,7 @@ func Initialize(instName string) (*Config, error) {
 		return nil, err
 	}
 	a := &Config{
-		LimaYAML:    y,
+		MacVZYaml:   y,
 		InstanceDir: inst.Dir,
 		Name:        inst.Name,
 	}
@@ -123,7 +129,7 @@ func Initialize(instName string) (*Config, error) {
 }
 
 func Run(cfg Config) error {
-	y := cfg.LimaYAML
+	y := cfg.MacVZYaml
 
 	kernelCommandLineArguments := []string{
 		// Use the first virtio console device as system console.
@@ -204,7 +210,7 @@ func Run(cfg Config) error {
 		vz.NewVirtioSocketDeviceConfiguration(),
 	})
 
-	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(cfg.LimaYAML.Mounts))
+	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(cfg.MacVZYaml.Mounts))
 	for i, mount := range y.Mounts {
 		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(mount.Location, mount.Location, !*mount.Writable)
 	}

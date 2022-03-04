@@ -20,7 +20,7 @@ func ensureDisk(ctx context.Context, instName, instDir string, y *yaml.MacVZYaml
 	qCfg := vzrun.Config{
 		Name:        instName,
 		InstanceDir: instDir,
-		LimaYAML:    y,
+		MacVZYaml:   y,
 	}
 	if err := vzrun.EnsureDisk(ctx, qCfg); err != nil {
 		return err

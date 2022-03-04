@@ -1,6 +1,7 @@
 package yaml
 
 import (
+	"fmt"
 	"github.com/balaji113/macvz/pkg/vz-wrapper"
 	"github.com/sirupsen/logrus"
 	"github.com/xorcare/pointer"
@@ -57,6 +58,17 @@ func FillDefault(y, d, o *MacVZYaml, filePath string) {
 		provision := &y.Provision[i]
 		if provision.Mode == "" {
 			provision.Mode = ProvisionModeSystem
+		}
+	}
+
+	y.Probes = append(append(o.Probes, y.Probes...), d.Probes...)
+	for i := range y.Probes {
+		probe := &y.Probes[i]
+		if probe.Mode == "" {
+			probe.Mode = ProbeModeReadiness
+		}
+		if probe.Description == "" {
+			probe.Description = fmt.Sprintf("user probe %d/%d", i+1, len(y.Probes))
 		}
 	}
 
