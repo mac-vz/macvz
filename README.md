@@ -8,7 +8,6 @@ References used in the project,
 
 # Requirements
 - Higher or equal to macOS monterey (12.2)
-- 
 - Golang
 
 # Features
