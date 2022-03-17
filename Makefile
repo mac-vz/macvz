@@ -19,6 +19,8 @@ all: binaries codesign
 .PHONY: binaries
 binaries: \
 	_output/bin/macvz \
+	_output/share/macvz/macvz-guestagent.Linux-x86_64 \
+    _output/share/macvz/macvz-guestagent.Linux-aarch64
 
 .PHONY: _output/bin/macvz
 _output/bin/macvz:
@@ -61,3 +63,12 @@ artifacts-darwin:
 	GOOS=darwin GOARCH=arm64 make clean binaries
 	$(TAR) -C _output -czvf _artifacts/macvz-$(VERSION_TRIMMED)-Darwin-arm64.tar.gz ./
 
+.PHONY: _output/share/macvz/macvz-guestagent.Linux-x86_64
+_output/share/macvz/macvz-guestagent.Linux-x86_64:
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 $(GO_BUILD) -o $@ ./cmd/macvz-guestagent
+	chmod 644 $@
+
+.PHONY: _output/share/macvz/macvz-guestagent.Linux-aarch64
+_output/share/macvz/macvz-guestagent.Linux-aarch64:
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 $(GO_BUILD) -o $@ ./cmd/macvz-guestagent
+	chmod 644 $@

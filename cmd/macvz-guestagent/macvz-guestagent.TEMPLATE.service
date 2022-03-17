@@ -1,0 +1,10 @@
+[Unit]
+Description=macvz-guestagent
+
+[Service]
+ExecStart={{.Binary}} daemon
+Type=simple
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

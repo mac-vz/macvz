@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"github.com/balaji113/macvz/pkg/cidata"
 	"github.com/balaji113/macvz/pkg/downloader"
+	proxy "github.com/balaji113/macvz/pkg/gvisor"
 	"github.com/balaji113/macvz/pkg/iso9660util"
+	"github.com/balaji113/macvz/pkg/socket"
 	"github.com/balaji113/macvz/pkg/store"
 	"github.com/balaji113/macvz/pkg/store/filenames"
 	"github.com/balaji113/macvz/pkg/vz-wrapper"
@@ -169,15 +171,36 @@ func Run(cfg Config) error {
 	})
 
 	// network
-	natAttachment := vz.NewNATNetworkDeviceAttachment()
+	serverNetSock := filepath.Join(cfg.InstanceDir, filenames.VZNetServer)
+	clientNetSock := filepath.Join(cfg.InstanceDir, filenames.VZNetClient)
+	vzGVisorSock := filepath.Join(cfg.InstanceDir, filenames.VZGVisorSock)
+	gVisorSock := filepath.Join(cfg.InstanceDir, filenames.GVisorSock)
+	macAddr, err := net.ParseMAC(*y.MACAddress)
+
+	serverNet := socket.ListenUnixGram(serverNetSock)
+	clientNet := socket.DialUnixGram(clientNetSock, serverNetSock)
+
+	fd := socket.GetFdFromConn(clientNet)
+
+	natAttachment := vz.NewFileHandleNetworkDeviceAttachment(fd)
 	networkConfig := vz.NewVirtioNetworkDeviceConfiguration(natAttachment)
+	networkConfig.SetMacAddress(vz.NewMACAddress(macAddr))
+
+	go func() {
+		err3 := os.Remove(gVisorSock)
+		if err3 != nil {
+			logrus.Fatal("Error while listening to network.sock", err3)
+		}
+		err3 = os.Remove(vzGVisorSock)
+		if err3 != nil {
+			logrus.Fatal("Error while listening to vznetwork.sock", err3)
+		}
+		proxy.StartProxy(gVisorSock, true, vzGVisorSock, *y.MACAddress, serverNet, clientNet.LocalAddr())
+	}()
+
 	config.SetNetworkDevicesVirtualMachineConfiguration([]*vz.VirtioNetworkDeviceConfiguration{
 		networkConfig,
 	})
-
-	first, err := net.ParseMAC(*y.MACAddress)
-	networkConfig.SetMacAddress(vz.NewMACAddress(first))
-
 	// entropy
 	entropyConfig := vz.NewVirtioEntropyDeviceConfiguration()
 	config.SetEntropyDevicesVirtualMachineConfiguration([]*vz.VirtioEntropyDeviceConfiguration{

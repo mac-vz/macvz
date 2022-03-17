@@ -114,7 +114,7 @@ func Start(ctx context.Context, inst *store.Instance) error {
 
 func waitHostAgentStart(ctx context.Context, screenFile, haStderrPath string) error {
 	begin := time.Now()
-	deadlineDuration := 5 * time.Second
+	deadlineDuration := 15 * time.Second
 	deadline := begin.Add(deadlineDuration)
 	for {
 		if _, err := os.Stat(screenFile); !errors.Is(err, os.ErrNotExist) {

@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balaji113/macvz/pkg/sshutil"
+	"io"
+	"io/fs"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -87,5 +90,59 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 		}
 	}
 
+	if guestAgentBinary, err := GuestAgentBinary(y.Images[0].Arch); err != nil {
+		return err
+	} else {
+		defer guestAgentBinary.Close()
+		layout = append(layout, iso9660util.Entry{
+			Path:   "macvz-guestagent",
+			Reader: guestAgentBinary,
+		})
+	}
+
 	return iso9660util.Write(filepath.Join(instDir, filenames.CIDataISO), "cidata", layout)
+}
+
+func GuestAgentBinary(arch string) (io.ReadCloser, error) {
+	if arch == "" {
+		return nil, errors.New("arch must be set")
+	}
+	self, err := os.Executable()
+	if err != nil {
+		return nil, err
+	}
+	selfSt, err := os.Stat(self)
+	if err != nil {
+		return nil, err
+	}
+	if selfSt.Mode()&fs.ModeSymlink != 0 {
+		self, err = os.Readlink(self)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// self:  /usr/local/bin/limactl
+	selfDir := filepath.Dir(self)
+	selfDirDir := filepath.Dir(selfDir)
+	candidates := []string{
+		// candidate 0:
+		// - self:  /Applications/Lima.app/Contents/MacOS/limactl
+		// - agent: /Applications/Lima.app/Contents/MacOS/lima-guestagent.Linux-x86_64
+		filepath.Join(selfDir, "macvz-guestagent.Linux-"+arch),
+		// candidate 1:
+		// - self:  /usr/local/bin/limactl
+		// - agent: /usr/local/share/lima/lima-guestagent.Linux-x86_64
+		filepath.Join(selfDirDir, "share/macvz/macvz-guestagent.Linux-"+arch),
+	}
+	for _, candidate := range candidates {
+		if f, err := os.Open(candidate); err == nil {
+			return f, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, err
+		}
+	}
+
+	return nil, fmt.Errorf("failed to find \"macvz-guestagent.Linux-%s\" binary for %q, attempted %v",
+		arch, self, candidates)
 }
