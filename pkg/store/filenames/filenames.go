@@ -35,8 +35,5 @@ const (
 	VZStdoutLog = "vz.stdout.log"
 	VZStderrLog = "vz.stderr.log"
 
-	VZNetServer  = "unixgram-server.sock"
-	VZNetClient  = "unixgram-client.sock"
-	GVisorSock   = "network.sock"
-	VZGVisorSock = "vzgvisor.sock"
+	SocketDir = "sockets"
 )
