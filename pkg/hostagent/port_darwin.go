@@ -16,9 +16,9 @@ import (
 )
 
 // forwardTCP is not thread-safe
-func forwardTCP(ctx context.Context, sshConfig *ssh.SSHConfig, port int, local, remote string, verb string) error {
+func forwardTCP(ctx context.Context, sshConfig *ssh.SSHConfig, sshRemote string, local, remote string, verb string) error {
 	if strings.HasPrefix(local, "/") {
-		return forwardSSH(ctx, sshConfig, port, local, remote, verb)
+		return forwardSSH(ctx, sshConfig, sshRemote, local, remote, verb)
 	}
 	localIPStr, localPortStr, err := net.SplitHostPort(local)
 	if err != nil {
@@ -31,14 +31,14 @@ func forwardTCP(ctx context.Context, sshConfig *ssh.SSHConfig, port int, local, 
 	}
 
 	if !localIP.Equal(api.IPv4loopback1) || localPort >= 1024 {
-		return forwardSSH(ctx, sshConfig, port, local, remote, verb)
+		return forwardSSH(ctx, sshConfig, sshRemote, local, remote, verb)
 	}
 
 	// on macOS, listening on 127.0.0.1:80 requires root while 0.0.0.0:80 does not require root.
 	// https://twitter.com/_AkihiroSuda_/status/1403403845842075648
 	//
 	// We use "pseudoloopback" forwarder that listens on 0.0.0.0:80 but rejects connections from non-loopback src IP.
-	logrus.Debugf("using pseudoloopback port forwarder for %q", local)
+	logrus.Debugf("using pseudoloopback sshRemote forwarder for %q", local)
 
 	if verb == verbCancel {
 		plf, ok := pseudoLoopbackForwarders[local]
@@ -46,7 +46,7 @@ func forwardTCP(ctx context.Context, sshConfig *ssh.SSHConfig, port int, local, 
 			localUnix := plf.unixAddr.Name
 			_ = plf.Close()
 			delete(pseudoLoopbackForwarders, local)
-			if err := forwardSSH(ctx, sshConfig, port, localUnix, remote, verb); err != nil {
+			if err := forwardSSH(ctx, sshConfig, sshRemote, localUnix, remote, verb); err != nil {
 				return err
 			}
 		} else {
@@ -61,12 +61,12 @@ func forwardTCP(ctx context.Context, sshConfig *ssh.SSHConfig, port int, local, 
 	}
 	localUnix := filepath.Join(localUnixDir, "sock")
 	logrus.Debugf("forwarding %q to %q", localUnix, remote)
-	if err := forwardSSH(ctx, sshConfig, port, localUnix, remote, verb); err != nil {
+	if err := forwardSSH(ctx, sshConfig, sshRemote, localUnix, remote, verb); err != nil {
 		return err
 	}
 	plf, err := newPseudoLoopbackForwarder(localPort, localUnix)
 	if err != nil {
-		if cancelErr := forwardSSH(ctx, sshConfig, port, localUnix, remote, verbCancel); cancelErr != nil {
+		if cancelErr := forwardSSH(ctx, sshConfig, sshRemote, localUnix, remote, verbCancel); cancelErr != nil {
 			logrus.WithError(cancelErr).Warnf("failed to cancel forwarding %q to %q", localUnix, remote)
 		}
 		return err

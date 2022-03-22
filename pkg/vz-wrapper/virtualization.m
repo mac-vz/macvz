@@ -391,9 +391,6 @@ void *newVZVirtioDirectorySharingDeviceConfiguration(const char *tagName, const 
     VZVirtioFileSystemDeviceConfiguration *share_conf = [[VZVirtioFileSystemDeviceConfiguration alloc] initWithTag:tagNameNSString];
 
     share_conf.share = [[VZSingleDirectoryShare alloc] initWithDirectory:directory];
-    NSLog(@"%@", folderPathURL);
-    NSLog(@"%@", tagNameNSString);
-    NSLog(@"%@", share_conf);
     return share_conf;
 }
 

@@ -17,6 +17,7 @@ func readAsync(conn net.Conn) chan []byte {
 		b := make([]byte, 1024)
 
 		for {
+			logrus.Println("======DATA1=========")
 			n, err := conn.Read(b)
 			if n > 0 {
 				res := make([]byte, n)
@@ -24,7 +25,9 @@ func readAsync(conn net.Conn) chan []byte {
 				copy(res, b[:n])
 				c <- res
 			}
+			logrus.Println("======DATA2=========")
 			if err != nil {
+				logrus.Error("Error reading data", err)
 				c <- nil
 				break
 			}
@@ -71,6 +74,8 @@ func (sock VsockConnection) ReadEvents(onData func(string)) {
 				if err != nil {
 					logrus.Error("Error writing data from b1", err)
 				}
+			} else {
+				logrus.Error("Error while reading")
 			}
 		}
 	}

@@ -12,8 +12,6 @@ type Status struct {
 	Exiting bool `json:"exiting,omitempty"`
 
 	Errors []string `json:"errors,omitempty"`
-
-	SSHLocalPort int `json:"sshLocalPort,omitempty"`
 }
 
 type Event struct {
