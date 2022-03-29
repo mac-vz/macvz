@@ -7,6 +7,7 @@ import (
 	"github.com/balaji113/macvz/pkg/cidata"
 	"github.com/balaji113/macvz/pkg/downloader"
 	"github.com/balaji113/macvz/pkg/iso9660util"
+	"github.com/balaji113/macvz/pkg/socket"
 	"github.com/balaji113/macvz/pkg/store"
 	"github.com/balaji113/macvz/pkg/store/filenames"
 	"github.com/balaji113/macvz/pkg/vz-wrapper"
@@ -15,8 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
-	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -89,20 +88,14 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed to download the required images, attempted %d candidates, errors=%v",
 				len(cfg.MacVZYaml.Images), errs)
 		}
+
+		inBytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
+		err := os.Truncate(baseDisk, inBytes)
+		if err != nil {
+			logrus.Println("Error during basedisk initial resize", err.Error())
+			return err
+		}
 	}
-
-	bytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
-	logrus.Println("Bytes", bytes)
-	command := exec.CommandContext(ctx, "/bin/dd", "if=/dev/null", "of="+baseDisk, "bs=1", "count=0",
-		"seek="+strconv.FormatInt(bytes, 10))
-	err := command.Run()
-
-	if err != nil {
-		logrus.Println("Error during resize", err.Error())
-		return err
-	}
-	logrus.Println("Resized")
-
 	return nil
 }
 
@@ -128,7 +121,7 @@ func Initialize(instName string) (*Config, error) {
 	return a, nil
 }
 
-func Run(cfg Config) error {
+func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Context, vsock socket.VsockConnection)) error {
 	y := cfg.MacVZYaml
 
 	kernelCommandLineArguments := []string{
@@ -150,8 +143,6 @@ func Run(cfg Config) error {
 		vz.WithCommandLine(strings.Join(kernelCommandLineArguments, " ")),
 		vz.WithInitrd(initrd),
 	)
-	logrus.Println("bootLoader:", bootLoader)
-	logrus.Println("disk:", diskPath)
 
 	bytes, err := units.RAMInBytes(*y.Memory)
 	config := vz.NewVirtualMachineConfiguration(
@@ -162,22 +153,24 @@ func Run(cfg Config) error {
 	//setRawMode(os.Stdin)
 
 	// console
-	serialPortAttachment := vz.NewFileHandleSerialPortAttachment(os.Stdin, os.Stdout)
+	readFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStdoutLog))
+	writeFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStderrLog))
+	serialPortAttachment := vz.NewFileHandleSerialPortAttachment(readFile, writeFile)
 	consoleConfig := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
 	config.SetSerialPortsVirtualMachineConfiguration([]*vz.VirtioConsoleDeviceSerialPortConfiguration{
 		consoleConfig,
 	})
 
 	// network
+	macAddr, err := net.ParseMAC(*y.MACAddress)
+
 	natAttachment := vz.NewNATNetworkDeviceAttachment()
 	networkConfig := vz.NewVirtioNetworkDeviceConfiguration(natAttachment)
+	networkConfig.SetMacAddress(vz.NewMACAddress(macAddr))
+
 	config.SetNetworkDevicesVirtualMachineConfiguration([]*vz.VirtioNetworkDeviceConfiguration{
 		networkConfig,
 	})
-
-	first, err := net.ParseMAC(*y.MACAddress)
-	networkConfig.SetMacAddress(vz.NewMACAddress(first))
-
 	// entropy
 	entropyConfig := vz.NewVirtioEntropyDeviceConfiguration()
 	config.SetEntropyDevicesVirtualMachineConfiguration([]*vz.VirtioEntropyDeviceConfiguration{
@@ -223,12 +216,7 @@ func Run(cfg Config) error {
 
 	vm := vz.NewVirtualMachine(config)
 
-	sigintCh := make(chan os.Signal, 1)
-	signal.Notify(sigintCh, os.Interrupt, os.Kill)
-
 	errCh := make(chan error, 1)
-
-	logrus.Println("=====VM State=====", vm.State())
 
 	vm.Start(func(err error) {
 		if err != nil {
@@ -259,6 +247,20 @@ func Run(cfg Config) error {
 						return err
 					}
 					defer os.RemoveAll(pidFile)
+				}
+
+				//VM Write and Host reads
+				listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
+					logrus.Println("Connected")
+					background, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					if err != nil {
+						logrus.Error("Error while starting host agent")
+					}
+					startEvents(background, socket.VsockConnection{Conn: conn})
+				})
+				for _, socketDevice := range vm.SocketDevices() {
+					socketDevice.SetSocketListenerForPort(listener, 2222)
 				}
 				logrus.Println("start VM is running")
 			}

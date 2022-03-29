@@ -6,6 +6,14 @@ images:
 mounts:
 - location: "/Users/balaji"
   writable: true
+disk: 20GB
+portForwards:
+  - guestSocket: "/var/run/docker.sock"
+    hostSocket: "{{.Dir}}/sock/docker.sock"
+  - guestPortRange:
+      - 1
+      - 65535
+    hostIP: 0.0.0.0
 provision:
   - mode: system
     script: |

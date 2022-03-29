@@ -119,6 +119,11 @@ var sshInfo struct {
 
 // SSHOpts adds the following options to CommonOptions: User, ControlMaster, ControlPath, ControlPersist
 func SSHOpts(instDir string, useDotSSH, forwardAgent bool) ([]string, error) {
+	controlSock := filepath.Join(instDir, filenames.SSHSock)
+	if len(controlSock) >= osutil.UnixPathMax {
+		return nil, fmt.Errorf("socket path %q is too long: >= UNIX_PATH_MAX=%d", controlSock, osutil.UnixPathMax)
+	}
+
 	u, err := osutil.MacVZUser(false)
 	if err != nil {
 		return nil, err
@@ -130,6 +135,7 @@ func SSHOpts(instDir string, useDotSSH, forwardAgent bool) ([]string, error) {
 	opts = append(opts,
 		fmt.Sprintf("User=%s", u.Username), // guest and host have the same username, but we should specify the username explicitly (#85)
 		"ControlMaster=auto",
+		fmt.Sprintf("ControlPath=\"%s\"", controlSock),
 		"ControlPersist=5m",
 	)
 	if forwardAgent {
@@ -222,10 +228,10 @@ func CommonOpts(useDotSSH bool) ([]string, error) {
 		// We prioritize AES algorithms when AES accelerator is available.
 		if sshInfo.aesAccelerated {
 			logrus.Debugf("AES accelerator seems available, prioritizing aes128-gcm@openssh.com and aes256-gcm@openssh.com")
-			opts = append(opts, "Ciphers=\"^aes128-gcm@openssh.com,aes256-gcm@openssh.com\"")
+			//opts = append(opts, "Ciphers=\"^aes128-gcm@openssh.com,aes256-gcm@openssh.com\"")
 		} else {
 			logrus.Debugf("AES accelerator does not seem available, prioritizing chacha20-poly1305@openssh.com")
-			opts = append(opts, "Ciphers=\"^chacha20-poly1305@openssh.com\"")
+			//opts = append(opts, "Ciphers=\"^chacha20-poly1305@openssh.com\"")
 		}
 	}
 	return opts, nil

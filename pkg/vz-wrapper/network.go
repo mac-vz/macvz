@@ -8,7 +8,6 @@ package vz
 import "C"
 import (
 	"net"
-	"os"
 	"runtime"
 )
 
@@ -109,11 +108,11 @@ var _ NetworkDeviceAttachment = (*FileHandleNetworkDeviceAttachment)(nil)
 // NewFileHandleNetworkDeviceAttachment initialize the attachment with a file handle.
 //
 // file parameter is holding a connected datagram socket.
-func NewFileHandleNetworkDeviceAttachment(file *os.File) *FileHandleNetworkDeviceAttachment {
+func NewFileHandleNetworkDeviceAttachment(fd int) *FileHandleNetworkDeviceAttachment {
 	attachment := &FileHandleNetworkDeviceAttachment{
 		pointer: pointer{
 			ptr: C.newVZFileHandleNetworkDeviceAttachment(
-				C.int(file.Fd()),
+				C.int(fd),
 			),
 		},
 	}

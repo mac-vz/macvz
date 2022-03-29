@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -105,5 +106,93 @@ func Validate(y MacVZYaml, warn bool) error {
 		}
 	}
 
+	for i, rule := range y.PortForwards {
+		field := fmt.Sprintf("portForwards[%d]", i)
+		if rule.GuestIPMustBeZero && !rule.GuestIP.Equal(net.IPv4zero) {
+			return fmt.Errorf("field `%s.guestIPMustBeZero` can only be true when field `%s.guestIP` is 0.0.0.0", field, field)
+		}
+		if rule.GuestPort != 0 {
+			if rule.GuestSocket != "" {
+				return fmt.Errorf("field `%s.guestPort` must be 0 when field `%s.guestSocket` is set", field, field)
+			}
+			if rule.GuestPort != rule.GuestPortRange[0] {
+				return fmt.Errorf("field `%s.guestPort` must match field `%s.guestPortRange[0]`", field, field)
+			}
+			// redundant validation to make sure the error contains the correct field name
+			if err := validatePort(field+".guestPort", rule.GuestPort); err != nil {
+				return err
+			}
+		}
+		if rule.HostPort != 0 {
+			if rule.HostSocket != "" {
+				return fmt.Errorf("field `%s.hostPort` must be 0 when field `%s.hostSocket` is set", field, field)
+			}
+			if rule.HostPort != rule.HostPortRange[0] {
+				return fmt.Errorf("field `%s.hostPort` must match field `%s.hostPortRange[0]`", field, field)
+			}
+			// redundant validation to make sure the error contains the correct field name
+			if err := validatePort(field+".hostPort", rule.HostPort); err != nil {
+				return err
+			}
+		}
+		for j := 0; j < 2; j++ {
+			if err := validatePort(fmt.Sprintf("%s.guestPortRange[%d]", field, j), rule.GuestPortRange[j]); err != nil {
+				return err
+			}
+			if err := validatePort(fmt.Sprintf("%s.hostPortRange[%d]", field, j), rule.HostPortRange[j]); err != nil {
+				return err
+			}
+		}
+		if rule.GuestPortRange[0] > rule.GuestPortRange[1] {
+			return fmt.Errorf("field `%s.guestPortRange[1]` must be greater than or equal to field `%s.guestPortRange[0]`", field, field)
+		}
+		if rule.HostPortRange[0] > rule.HostPortRange[1] {
+			return fmt.Errorf("field `%s.hostPortRange[1]` must be greater than or equal to field `%s.hostPortRange[0]`", field, field)
+		}
+		if rule.GuestPortRange[1]-rule.GuestPortRange[0] != rule.HostPortRange[1]-rule.HostPortRange[0] {
+			return fmt.Errorf("field `%s.hostPortRange` must specify the same number of ports as field `%s.guestPortRange`", field, field)
+		}
+		if rule.GuestSocket != "" {
+			if !filepath.IsAbs(rule.GuestSocket) {
+				return fmt.Errorf("field `%s.guestSocket` must be an absolute path", field)
+			}
+			if rule.HostSocket == "" && rule.HostPortRange[1]-rule.HostPortRange[0] > 0 {
+				return fmt.Errorf("field `%s.guestSocket` can only be mapped to a single port or socket. not a range", field)
+			}
+		}
+		if rule.HostSocket != "" {
+			if !filepath.IsAbs(rule.HostSocket) {
+				// should be unreachable because FillDefault() will prepend the instance directory to relative names
+				return fmt.Errorf("field `%s.hostSocket` must be an absolute path, but is %q", field, rule.HostSocket)
+			}
+			if rule.GuestSocket == "" && rule.GuestPortRange[1]-rule.GuestPortRange[0] > 0 {
+				return fmt.Errorf("field `%s.hostSocket` can only be mapped from a single port or socket. not a range", field)
+			}
+		}
+		if len(rule.HostSocket) >= osutil.UnixPathMax {
+			return fmt.Errorf("field `%s.hostSocket` must be less than UNIX_PATH_MAX=%d characters, but is %d",
+				field, osutil.UnixPathMax, len(rule.HostSocket))
+		}
+		if rule.Proto != TCP {
+			return fmt.Errorf("field `%s.proto` must be %q", field, TCP)
+		}
+		// Not validating that the various GuestPortRanges and HostPortRanges are not overlapping. Rules will be
+		// processed sequentially and the first matching rule for a guest port determines forwarding behavior.
+	}
+
+	return nil
+}
+
+func validatePort(field string, port int) error {
+	switch {
+	case port < 0:
+		return fmt.Errorf("field `%s` must be > 0", field)
+	case port == 0:
+		return fmt.Errorf("field `%s` must be set", field)
+	case port == 22:
+		return fmt.Errorf("field `%s` must not be 22", field)
+	case port > 65535:
+		return fmt.Errorf("field `%s` must be < 65536", field)
+	}
 	return nil
 }
