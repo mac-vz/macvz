@@ -117,6 +117,18 @@ var sshInfo struct {
 	openSSHVersion semver.Version
 }
 
+func SSHRemoteUser(macaddr string) string {
+	ip, err := osutil.GetIPFromMac(macaddr)
+	if err != nil {
+		logrus.Error("Unable to get IP from mac", err)
+	}
+	user, err := osutil.MacVZUser(true)
+	if err != nil {
+		logrus.Error("Unable to get current user", err)
+	}
+	return user.Username + "@" + ip
+}
+
 // SSHOpts adds the following options to CommonOptions: User, ControlMaster, ControlPath, ControlPersist
 func SSHOpts(instDir string, useDotSSH, forwardAgent bool) ([]string, error) {
 	controlSock := filepath.Join(instDir, filenames.SSHSock)

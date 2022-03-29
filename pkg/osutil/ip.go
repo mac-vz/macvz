@@ -1,35 +1,104 @@
 package osutil
 
 import (
-	"context"
+	"bufio"
 	"fmt"
-	"os/exec"
+	"github.com/sirupsen/logrus"
+	"io"
+	"os"
+	"regexp"
 	"strings"
 )
 
-func GetIPFromMac(ctx context.Context, mac string) (string, error) {
-	mac = ProcessMacAddress(mac)
-	arpCmd := exec.CommandContext(ctx, "/bin/sh", "-c", fmt.Sprintf("arp -a | grep -w -i '%s' | awk '{print $2}'", mac))
-	output, err := arpCmd.Output()
+const (
+	// LeasesPath is the path to dhcpd leases
+	LeasesPath = "/var/db/dhcpd_leases"
+)
+
+var (
+	leadingZeroRegexp = regexp.MustCompile(`0([A-Fa-f0-9](:|$))`)
+)
+
+// DHCPEntry holds a parsed DNS entry
+type DHCPEntry struct {
+	Name      string
+	IPAddress string
+	HWAddress string
+	ID        string
+	Lease     string
+}
+
+// GetIPAddressByMACAddress gets the IP address of a MAC address
+func GetIPFromMac(mac string) (string, error) {
+	mac = trimMACAddress(mac)
+	return getIPAddressFromFile(mac, LeasesPath)
+}
+
+func getIPAddressFromFile(mac, path string) (string, error) {
+	logrus.Debugf("Searching for %s in %s ...", mac, path)
+	file, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
-	s := string(output)
-	s = strings.Replace(s, "(", "", 1)
-	s = strings.Replace(s, ")", "", 1)
-	s = strings.Replace(s, "\n", "", 1)
-	return s, nil
+	defer file.Close()
+
+	dhcpEntries, err := parseDHCPdLeasesFile(file)
+	if err != nil {
+		return "", err
+	}
+	logrus.Debugf("Found %d entries in %s!", len(dhcpEntries), path)
+	for _, dhcpEntry := range dhcpEntries {
+		logrus.Debugf("dhcp entry: %+v", dhcpEntry)
+		if dhcpEntry.HWAddress == mac {
+			logrus.Debugf("Found match: %s", mac)
+			return dhcpEntry.IPAddress, nil
+		}
+	}
+	return "", fmt.Errorf("could not find an IP address for %s", mac)
 }
 
-/*
-This is needed because arp -a will strip the mac with trailing 0
-Eg: 04:95:e6:69:ba:80 will be 4:95:e6:69:ba:80
-	01:00:5e:00:00:fb will be 1:0:5e:0:0:fb
-*/
-func ProcessMacAddress(mac string) string {
-	parts := strings.Split(mac, ":")
-	for i, part := range parts {
-		parts[i] = strings.TrimPrefix(part, "0")
+func parseDHCPdLeasesFile(file io.Reader) ([]DHCPEntry, error) {
+	var (
+		dhcpEntry   *DHCPEntry
+		dhcpEntries []DHCPEntry
+	)
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "{" {
+			dhcpEntry = new(DHCPEntry)
+			continue
+		} else if line == "}" {
+			dhcpEntries = append(dhcpEntries, *dhcpEntry)
+			continue
+		}
+
+		split := strings.SplitN(line, "=", 2)
+		if len(split) != 2 {
+			return nil, fmt.Errorf("invalid line in dhcp leases file: %s", line)
+		}
+		key, val := split[0], split[1]
+		switch key {
+		case "name":
+			dhcpEntry.Name = val
+		case "ip_address":
+			dhcpEntry.IPAddress = val
+		case "hw_address":
+			// The mac addresses have a '1,' at the start.
+			dhcpEntry.HWAddress = val[2:]
+		case "identifier":
+			dhcpEntry.ID = val
+		case "lease":
+			dhcpEntry.Lease = val
+		default:
+			return dhcpEntries, fmt.Errorf("unable to parse line: %s", line)
+		}
 	}
-	return strings.Join(parts, ":")
+	return dhcpEntries, scanner.Err()
+}
+
+// trimMacAddress trimming "0" of the ten's digit
+func trimMACAddress(macAddress string) string {
+	return leadingZeroRegexp.ReplaceAllString(macAddress, "$1")
 }

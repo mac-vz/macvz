@@ -22,5 +22,15 @@ provision:
       command -v docker >/dev/null 2>&1 && exit 0
       export DEBIAN_FRONTEND=noninteractive
       curl -fsSL https://get.docker.com | sh
-      sudo usermod --append --groups docker "${MACVZ_CIDATA_USER}"
-      sudo systemctl enable docker
+      usermod --append --groups docker "${MACVZ_CIDATA_USER}"
+      systemctl enable docker
+      newgrp docker
+probes:
+  - script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until command -v docker >/dev/null 2>&1; do sleep 3; done"; then
+        echo >&2 "docker is not installed yet"
+        exit 1
+      fi
+    hint: See "/var/log/cloud-init-output.log". in the guest

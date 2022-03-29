@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/balaji113/macvz/pkg/hostagent/events"
-	"github.com/balaji113/macvz/pkg/osutil"
 	"github.com/balaji113/macvz/pkg/socket"
 	"github.com/balaji113/macvz/pkg/vzrun"
 	"github.com/balaji113/macvz/pkg/yaml"
@@ -150,18 +149,16 @@ func (a *HostAgent) startHostAgentRoutines(ctx context.Context) error {
 	if err := a.waitForRequirements(ctx, "host", a.hostRequirements()); err != nil {
 		mErr = multierror.Append(mErr, err)
 	}
-	mac, _ := osutil.GetIPFromMac(ctx, *a.y.MACAddress)
-	user, _ := osutil.MacVZUser(true)
-
-	a.setSSHRemote(user.Username + "@" + mac)
+	sshRemoteUser := sshutil.SSHRemoteUser(*a.y.MACAddress)
+	a.setSSHRemote(sshRemoteUser)
 
 	if err := a.waitForRequirements(ctx, "essential", a.essentialRequirements()); err != nil {
 		mErr = multierror.Append(mErr, err)
 	}
-	go a.ForwardDefinedSockets(ctx)
 	if err := a.waitForRequirements(ctx, "optional", a.optionalRequirements()); err != nil {
 		mErr = multierror.Append(mErr, err)
 	}
+	go a.ForwardDefinedSockets(ctx)
 	if err := a.waitForRequirements(ctx, "final", a.finalRequirements()); err != nil {
 		mErr = multierror.Append(mErr, err)
 	}
@@ -232,9 +229,8 @@ func (a *HostAgent) processGuestAgentEvents(ctx context.Context, conn socket.Vso
 			for _, f := range event.Errors {
 				logrus.Warnf("received error from the guest: %q", f)
 			}
-			mac, _ := osutil.GetIPFromMac(ctx, *a.y.MACAddress)
-			user, _ := osutil.MacVZUser(true)
-			a.portForwarder.OnEvent(ctx, user.Username+"@"+mac, event)
+			sshRemoteUser := sshutil.SSHRemoteUser(*a.y.MACAddress)
+			a.portForwarder.OnEvent(ctx, sshRemoteUser, event)
 		}
 	})
 	return io.EOF
