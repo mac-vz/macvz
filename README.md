@@ -14,8 +14,7 @@ References used in the project,
 - [x] Start, stop, shell access for multiple VMs
 - [x] Filesystem mounting using virtfs
 - [x] Working docker example
-- [ ] Port binding
-- [ ] SSH via vsock
+- [x] Port binding (Initial support present, Needs testing !!!)
 
 # Getting Started
 ## Installation
