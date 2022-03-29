@@ -30,7 +30,7 @@ type DHCPEntry struct {
 
 // GetIPAddressByMACAddress gets the IP address of a MAC address
 func GetIPFromMac(mac string) (string, error) {
-	mac = trimMACAddress(mac)
+	mac = TrimMACAddress(mac)
 	return getIPAddressFromFile(mac, LeasesPath)
 }
 
@@ -98,7 +98,7 @@ func parseDHCPdLeasesFile(file io.Reader) ([]DHCPEntry, error) {
 	return dhcpEntries, scanner.Err()
 }
 
-// trimMacAddress trimming "0" of the ten's digit
-func trimMACAddress(macAddress string) string {
+// TrimMacAddress trimming "0" of the ten's digit
+func TrimMACAddress(macAddress string) string {
 	return leadingZeroRegexp.ReplaceAllString(macAddress, "$1")
 }

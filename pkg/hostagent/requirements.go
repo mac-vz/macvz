@@ -86,7 +86,7 @@ if [[ $( arp -a | grep -w -i '%s' | awk '{print $2}') ]]; then
 else 
   exit 1 
 fi
-`, osutil.ProcessMacAddress(*a.y.MACAddress)),
+`, osutil.TrimMACAddress(*a.y.MACAddress)),
 			debugHint: `Failed to acquire host IP.
 `,
 			host: true,
