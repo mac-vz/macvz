@@ -16,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -89,27 +88,14 @@ func EnsureDisk(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("failed to download the required images, attempted %d candidates, errors=%v",
 				len(cfg.MacVZYaml.Images), errs)
 		}
-	}
 
-	bytes, _ := units.FromHumanSize(*cfg.MacVZYaml.Disk)
-	stat, _ := os.Stat(baseDisk)
-	if stat.Size() != bytes {
-		logrus.Println("Resize needed")
-		valInGb := bytes / units.GB
-		if valInGb == 0 {
-			return fmt.Errorf("disk size must be in GB")
-		}
-
-		command := exec.CommandContext(ctx, "/bin/dd", "if=/dev/null", "of="+baseDisk, "bs=1", "count=0",
-			fmt.Sprintf("seek=%dG", valInGb))
-		err := command.Run()
-
+		inBytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
+		err := os.Truncate(baseDisk, inBytes)
 		if err != nil {
-			logrus.Println("Error during resize", err.Error(), command.Stdout, strconv.FormatInt(bytes, 10))
+			logrus.Println("Error during basedisk initial resize", err.Error())
 			return err
 		}
 	}
-	logrus.Println("Resize not needed")
 	return nil
 }
 

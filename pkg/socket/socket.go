@@ -1,6 +1,7 @@
 package socket
 
 import (
+	"bytes"
 	"github.com/sirupsen/logrus"
 	"net"
 	"strings"
@@ -17,7 +18,6 @@ func readAsync(conn net.Conn) chan []byte {
 		b := make([]byte, 1024)
 
 		for {
-			logrus.Println("======DATA1=========")
 			n, err := conn.Read(b)
 			if n > 0 {
 				res := make([]byte, n)
@@ -25,7 +25,6 @@ func readAsync(conn net.Conn) chan []byte {
 				copy(res, b[:n])
 				c <- res
 			}
-			logrus.Println("======DATA2=========")
 			if err != nil {
 				logrus.Error("Error reading data", err)
 				c <- nil
@@ -46,36 +45,29 @@ func (sock VsockConnection) WriteEvents(event string) {
 }
 
 func (sock VsockConnection) ReadEvents(onData func(string)) {
-	var fullLine strings.Builder
+	var buffer bytes.Buffer
 
 	charCh := readAsync(sock.Conn)
 
 	for {
 		select {
 		case b1 := <-charCh:
-			if b1 != nil {
-				_, err := fullLine.Write(b1)
-				fullStr := fullLine.String()
+			if b1 != nil && len(b1) > 0 {
+				_, err := buffer.Write(b1)
+				fullStr := buffer.String()
 				if strings.Contains(fullStr, "<<EOF>>") {
 					parts := strings.Split(fullStr, "<<EOF>>")
-					if len(parts) == 1 {
-						//No additional data fetched
-						onData(fullStr)
-					} else {
-						fullLine.Reset()
-						for i := range parts {
-							for i != 0 {
-								fullLine.WriteString(parts[i])
-							}
+					onData(parts[0])
+					buffer.Reset()
+					for i := range parts {
+						if i != 0 {
+							buffer.WriteString(parts[i])
 						}
-						onData(parts[0])
 					}
 				}
 				if err != nil {
 					logrus.Error("Error writing data from b1", err)
 				}
-			} else {
-				logrus.Error("Error while reading")
 			}
 		}
 	}

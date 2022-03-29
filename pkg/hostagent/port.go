@@ -12,14 +12,12 @@ import (
 
 type portForwarder struct {
 	sshConfig *ssh.SSHConfig
-	sshRemote string
 	rules     []yaml.PortForward
 }
 
-func newPortForwarder(sshConfig *ssh.SSHConfig, sshRemote string, rules []yaml.PortForward) *portForwarder {
+func newPortForwarder(sshConfig *ssh.SSHConfig, rules []yaml.PortForward) *portForwarder {
 	return &portForwarder{
 		sshConfig: sshConfig,
-		sshRemote: sshRemote,
 		rules:     rules,
 	}
 }
@@ -67,14 +65,14 @@ func (pf *portForwarder) forwardingAddresses(guest api.IPPort) (string, string) 
 	return "", guest.String()
 }
 
-func (pf *portForwarder) OnEvent(ctx context.Context, ev api.Event) {
+func (pf *portForwarder) OnEvent(ctx context.Context, sshRemote string, ev api.Event) {
 	for _, f := range ev.LocalPortsRemoved {
 		local, remote := pf.forwardingAddresses(f)
 		if local == "" {
 			continue
 		}
 		logrus.Infof("Stopping forwarding TCP from %s to %s", remote, local)
-		if err := forwardTCP(ctx, pf.sshConfig, pf.sshRemote, local, remote, verbCancel); err != nil {
+		if err := forwardTCP(ctx, pf.sshConfig, sshRemote, local, remote, verbCancel); err != nil {
 			logrus.WithError(err).Warnf("failed to stop forwarding tcp port %d", f.Port)
 		}
 	}
@@ -85,7 +83,7 @@ func (pf *portForwarder) OnEvent(ctx context.Context, ev api.Event) {
 			continue
 		}
 		logrus.Infof("Forwarding TCP from %s to %s", remote, local)
-		if err := forwardTCP(ctx, pf.sshConfig, pf.sshRemote, local, remote, verbForward); err != nil {
+		if err := forwardTCP(ctx, pf.sshConfig, sshRemote, local, remote, verbForward); err != nil {
 			logrus.WithError(err).Warnf("failed to set up forwarding tcp port %d (negligible if already forwarded)", f.Port)
 		}
 	}

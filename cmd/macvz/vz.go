@@ -29,13 +29,11 @@ func vzBashComplete(cmd *cobra.Command, args []string, toComplete string) ([]str
 
 func vzAction(cmd *cobra.Command, args []string) error {
 	instName := args[0]
-
 	stderr := &syncWriter{w: cmd.ErrOrStderr()}
 	initLogrus(stderr)
 
 	sigintCh := make(chan os.Signal, 1)
 	signal.Notify(sigintCh, os.Interrupt)
-
 	agent, err := hostagent.New(instName, sigintCh)
 	if err != nil {
 		return err
