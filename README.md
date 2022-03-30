@@ -12,7 +12,7 @@ References used in the project,
 - Golang
 
 # Wiki
-Check out Github Wiki page [Why use virtualization framework](https://github.com/balajiv113/macvz/wiki/Why-use-Virtualization.Framework-%3F) to understand more on advantages of Virtualization framework
+Check out Github Wiki page [Why use virtualization framework](https://github.com/balajiv113/macvz/wiki/Why-use-macOS-virtualization-framework-%3F) to understand more on advantages of Virtualization framework
 
 # Features
 - [x] Start, stop, shell access for multiple VMs
