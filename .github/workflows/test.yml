@@ -7,7 +7,7 @@ on:
 jobs:
   build:
     name: Test for failure
-    runs-on: macos-11
+    runs-on: macos-10.15
 
     steps:
       - name: Checkout
