@@ -14,6 +14,28 @@ References used in the project,
 # Wiki
 Check out Github Wiki page [Why use virtualization framework](https://github.com/balajiv113/macvz/wiki/Why-use-macOS-virtualization-framework-%3F) to understand more on advantages of Virtualization framework
 
+## Summary of filesystem performance with colima
+
+The following table contains result summary of some different workloads tested against macvz and colima
+
+### Summary for IOPS (Input Ouput Per Second)
+| Workload            | Summary                            | macvz   | colima |
+|---------------------|------------------------------------|---------|--------|
+| Sequential Reads    | macvz handles 8x higher operations | 620K    | 77K    |
+| Random Reads        | macvz handles 3x higher operations | 82K     | 25K    |
+| Random Reads/Writes | macvz handles 3x higher operations | 37K/12K | 14K/4K |
+| Sequential writes   | macvz performs almost equally      | 37K     | 38K    |
+| Random writes       | macvz performs almost equally      | 22K     | 30K    |
+
+### Summary for Bandwidth (Maximum amount of data transmitted)
+| Workload            | Summary                       | macvz      | colima    |
+|---------------------|-------------------------------|------------|-----------|
+| Sequential Reads    | macvz handles 8x more data    | 2500MB     | 306MB     |
+| Random Reads        | macvz handles 3x more data    | 320MB      | 98MB      |
+| Random Reads/Writes | macvz handles 3x more data    | 140MB/50MB | 60MB/20MB |
+| Sequential writes   | macvz performs almost equally | 145MB      | 150MB     |
+| Random writes       | macvz performs almost equally | 90MB       | 110MB     |
+
 # Features
 - [x] Start, stop, shell access for multiple VMs
 - [x] Filesystem mounting using virtfs
