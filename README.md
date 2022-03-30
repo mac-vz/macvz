@@ -31,7 +31,7 @@ Check out Github Wiki page [Why use virtualization framework](https://github.com
 ## Using macvz as a alternate for Docker Desktop
 To start a Docker VM, run the following command
 ```
-macvz start https://raw.githubusercontent.com/balajiv113/macvz/main/examples/docker.yaml
+macvz start https://raw.githubusercontent.com/mac-vz/macvz/main/examples/docker.yaml
 ```
 
 Execute the following command in macOS host to update docker.sock location
