@@ -1,0 +1,17 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    name: Test for failure
+    runs-on: macos-11
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Install macvz
+        run: |
+          brew install mac-vz/tap/macvz
