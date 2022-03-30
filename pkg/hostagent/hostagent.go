@@ -57,7 +57,6 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 	}
 	// y is loaded with FillDefault() already, so no need to care about nil pointers.
 
-	logrus.Println("New host")
 	sshOpts, err := sshutil.SSHOpts(inst.Dir, *y.SSH.LoadDotSSHPubKeys, *y.SSH.ForwardAgent)
 	if err != nil {
 		return nil, err
@@ -102,7 +101,6 @@ func (a *HostAgent) Run(ctx context.Context) error {
 		a.emitEvent(ctx, exitingEv)
 	}()
 
-	logrus.Println("Booting")
 	stBooting := events.Status{}
 	a.emitEvent(ctx, events.Event{Status: stBooting})
 
@@ -189,19 +187,25 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 		}
 		return mErr
 	})
+
+	for {
+		_, _, err := ssh.ExecuteScript(a.sshRemote, 22, a.sshConfig, `#!/bin/bash
+true`, "Ping to keep SSH Master alive")
+		if err != nil {
+			logrus.Error("SSH Ping to guest failed", err)
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(10 * time.Second):
+		}
+	}
 }
 
 func (a *HostAgent) WatchGuestAgentEvents(ctx context.Context, conn socket.VsockConnection) {
 	if err := a.processGuestAgentEvents(ctx, conn); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			logrus.WithError(err).Warn("connection to the guest agent was closed unexpectedly")
-		}
-	}
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(10 * time.Second):
 		}
 	}
 }
