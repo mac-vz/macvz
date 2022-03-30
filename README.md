@@ -21,7 +21,10 @@ Check out Github Wiki page [Why use virtualization framework](https://github.com
 - [x] Port binding (Initial support present, Needs testing !!!)
 
 # Getting Started
-## Installation
+## Installation via Homebrew
+- Run `brew install mac-vz/tap/macvz` to install macvz
+
+## Installation via source
 - Run `make all` to compile and build binary
 - Run `make install` to install the binary to /usr/local
 
