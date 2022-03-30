@@ -19,7 +19,6 @@ require (
 	github.com/norouter/norouter v0.6.4
 	github.com/nxadm/tail v1.4.8
 	github.com/opencontainers/go-digest v1.0.0
-	github.com/pkg/profile v1.6.0
 	github.com/rs/xid v1.3.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/spf13/cobra v1.4.0

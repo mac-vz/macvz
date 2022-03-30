@@ -58,9 +58,9 @@ clean:
 .PHONY: artifacts-darwin
 artifacts-darwin:
 	mkdir -p _artifacts
-	GOOS=darwin GOARCH=amd64 make clean binaries
+	GOOS=darwin GOARCH=amd64 make clean binaries codesign
 	$(TAR) -C _output/ -czvf _artifacts/macvz-$(VERSION_TRIMMED)-Darwin-x86_64.tar.gz ./
-	GOOS=darwin GOARCH=arm64 make clean binaries
+	GOOS=darwin GOARCH=arm64 make clean binaries codesign
 	$(TAR) -C _output -czvf _artifacts/macvz-$(VERSION_TRIMMED)-Darwin-arm64.tar.gz ./
 
 .PHONY: _output/share/macvz/macvz-guestagent.Linux-x86_64
