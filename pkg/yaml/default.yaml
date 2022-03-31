@@ -14,11 +14,11 @@ arch: null
 # Ubuntu and Fedora are known to work.
 # Default: none (must be specified)
 images:
-- kernal: ""
+- kernel: ""
   initram: ""
   base: ""
   arch: "x86_64"
-- kernal: ""
+- kernel: ""
   initram: ""
   base: ""
   arch: "aarch64"

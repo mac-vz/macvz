@@ -23,7 +23,7 @@ func Validate(y MacVZYaml, warn bool) error {
 
 		if !strings.Contains(f.Kernel, "://") {
 			if _, err := localpathutil.Expand(f.Kernel); err != nil {
-				return fmt.Errorf("field `images[%d].kernal` refers to an invalid local file path: %q: %w", i, f.Kernel, err)
+				return fmt.Errorf("field `images[%d].kernel` refers to an invalid local file path: %q: %w", i, f.Kernel, err)
 			}
 		}
 		if !strings.Contains(f.Base, "://") {
