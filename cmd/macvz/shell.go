@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/alessio/shellescape"
-	"github.com/balaji113/macvz/pkg/sshutil"
-	"github.com/balaji113/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/sshutil"
+	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mattn/go-isatty"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"

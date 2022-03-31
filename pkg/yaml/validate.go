@@ -9,9 +9,9 @@ import (
 
 	"errors"
 
-	"github.com/balaji113/macvz/pkg/localpathutil"
-	"github.com/balaji113/macvz/pkg/osutil"
 	"github.com/docker/go-units"
+	"github.com/mac-vz/macvz/pkg/localpathutil"
+	"github.com/mac-vz/macvz/pkg/osutil"
 )
 
 func Validate(y MacVZYaml, warn bool) error {

@@ -6,7 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/osutil"
+	"github.com/mac-vz/macvz/pkg/osutil"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/balaji113/macvz/pkg/lockutil"
-	"github.com/balaji113/macvz/pkg/store/dirnames"
-	"github.com/balaji113/macvz/pkg/store/filenames"
 	"github.com/coreos/go-semver/semver"
+	"github.com/mac-vz/macvz/pkg/lockutil"
+	"github.com/mac-vz/macvz/pkg/store/dirnames"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/sirupsen/logrus"
 )
 

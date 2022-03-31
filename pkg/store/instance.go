@@ -2,9 +2,9 @@ package store
 
 import (
 	"errors"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/yaml"
 	"github.com/docker/go-units"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"os"
 	"path/filepath"
 	"strconv"

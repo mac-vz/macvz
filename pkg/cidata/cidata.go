@@ -3,7 +3,7 @@ package cidata
 import (
 	"errors"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/sshutil"
+	"github.com/mac-vz/macvz/pkg/sshutil"
 	"io"
 	"io/fs"
 	"os"
@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/balaji113/macvz/pkg/iso9660util"
-	"github.com/balaji113/macvz/pkg/localpathutil"
-	"github.com/balaji113/macvz/pkg/osutil"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/iso9660util"
+	"github.com/mac-vz/macvz/pkg/localpathutil"
+	"github.com/mac-vz/macvz/pkg/osutil"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/yaml"
 )
 
 func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {

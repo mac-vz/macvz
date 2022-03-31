@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/balaji113/macvz/pkg/logrusutil"
+	"github.com/mac-vz/macvz/pkg/logrusutil"
 	"github.com/nxadm/tail"
 	"github.com/sirupsen/logrus"
 )

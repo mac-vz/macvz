@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/osutil"
 	"github.com/lima-vm/sshocker/pkg/ssh"
+	"github.com/mac-vz/macvz/pkg/osutil"
 	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/balaji113/macvz/pkg/yaml"
 	"github.com/hashicorp/go-multierror"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/sirupsen/logrus"
 )
 

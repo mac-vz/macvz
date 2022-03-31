@@ -3,7 +3,7 @@ package main
 import (
 	"strings"
 
-	"github.com/balaji113/macvz/pkg/version"
+	"github.com/mac-vz/macvz/pkg/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

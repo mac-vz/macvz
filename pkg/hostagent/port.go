@@ -2,11 +2,11 @@ package hostagent
 
 import (
 	"context"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"net"
 
-	"github.com/balaji113/macvz/pkg/guestagent/api"
 	"github.com/lima-vm/sshocker/pkg/ssh"
+	"github.com/mac-vz/macvz/pkg/guestagent/api"
 	"github.com/sirupsen/logrus"
 )
 

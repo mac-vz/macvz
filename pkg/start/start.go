@@ -4,16 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	hostagentevents "github.com/balaji113/macvz/pkg/hostagent/events"
+	hostagentevents "github.com/mac-vz/macvz/pkg/hostagent/events"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/balaji113/macvz/pkg/store"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/vzrun"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/vzrun"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/sirupsen/logrus"
 )
 

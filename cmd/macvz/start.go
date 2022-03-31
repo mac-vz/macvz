@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/osutil"
+	"github.com/mac-vz/macvz/pkg/osutil"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,10 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/balaji113/macvz/pkg/start"
-	"github.com/balaji113/macvz/pkg/store"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/start"
+	"github.com/mac-vz/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	yaml2 "gopkg.in/yaml.v2"

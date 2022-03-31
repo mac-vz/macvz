@@ -2,7 +2,7 @@ package main
 
 import (
 	"errors"
-	"github.com/balaji113/macvz/pkg/guestagent"
+	"github.com/mac-vz/macvz/pkg/guestagent"
 	"github.com/mdlayher/vsock"
 	"os"
 	"time"

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/balaji113/macvz/pkg/store/dirnames"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/store/dirnames"
+	"github.com/mac-vz/macvz/pkg/yaml"
 )
 
 // Instances returns the names of the instances under MacVZDir.

@@ -3,9 +3,9 @@ package yaml
 import (
 	"bytes"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/guestagent/api"
-	"github.com/balaji113/macvz/pkg/osutil"
-	"github.com/balaji113/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/guestagent/api"
+	"github.com/mac-vz/macvz/pkg/osutil"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/mac-vz/vz"
 	"github.com/sirupsen/logrus"
 	"github.com/xorcare/pointer"

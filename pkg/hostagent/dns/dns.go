@@ -4,12 +4,11 @@ package dns
 
 import (
 	"fmt"
-	"net"
-	"strings"
-
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
+	"net"
+	"strings"
 )
 
 // Truncate for avoiding "Parse error" from `busybox nslookup`

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/balaji113/macvz/pkg/guestagent/api"
 	"github.com/lima-vm/sshocker/pkg/ssh"
+	"github.com/mac-vz/macvz/pkg/guestagent/api"
 	"github.com/norouter/norouter/pkg/agent/bicopy"
 	"github.com/sirupsen/logrus"
 )

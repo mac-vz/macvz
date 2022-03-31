@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/balaji113/macvz/pkg/store/dirnames"
-	"github.com/balaji113/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/store/dirnames"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
