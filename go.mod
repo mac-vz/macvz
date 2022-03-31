@@ -11,8 +11,8 @@ require (
 	github.com/docker/go-units v0.4.0
 	github.com/elastic/go-libaudit/v2 v2.2.0
 	github.com/hashicorp/go-multierror v1.1.1
-	github.com/lima-vm/lima v0.9.1
 	github.com/lima-vm/sshocker v0.2.2
+	github.com/mac-vz/vz v0.0.5-0.20220331053356-10268d2f0d0c
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mdlayher/vsock v1.1.1
 	github.com/miekg/dns v1.1.47

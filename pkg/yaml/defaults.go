@@ -6,7 +6,7 @@ import (
 	"github.com/balaji113/macvz/pkg/guestagent/api"
 	"github.com/balaji113/macvz/pkg/osutil"
 	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/vz-wrapper"
+	"github.com/mac-vz/vz"
 	"github.com/sirupsen/logrus"
 	"github.com/xorcare/pointer"
 	"net"

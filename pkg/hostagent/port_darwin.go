@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/lima-vm/lima/pkg/guestagent/api"
+	"github.com/balaji113/macvz/pkg/guestagent/api"
 	"github.com/lima-vm/sshocker/pkg/ssh"
 	"github.com/norouter/norouter/pkg/agent/bicopy"
 	"github.com/sirupsen/logrus"

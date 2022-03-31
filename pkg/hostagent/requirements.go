@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/balaji113/macvz/pkg/yaml"
 	"github.com/hashicorp/go-multierror"
-	"github.com/lima-vm/lima/pkg/limayaml"
 	"github.com/sirupsen/logrus"
 )
 
@@ -143,7 +143,7 @@ it must not be created until the session reset is done.
 func (a *HostAgent) optionalRequirements() []requirement {
 	req := make([]requirement, 0)
 	for _, probe := range a.y.Probes {
-		if probe.Mode == limayaml.ProbeModeReadiness {
+		if probe.Mode == yaml.ProbeModeReadiness {
 			req = append(req, requirement{
 				description: probe.Description,
 				script:      probe.Script,

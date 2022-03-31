@@ -10,9 +10,9 @@ import (
 	"github.com/balaji113/macvz/pkg/socket"
 	"github.com/balaji113/macvz/pkg/store"
 	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/vz-wrapper"
 	"github.com/balaji113/macvz/pkg/yaml"
 	"github.com/docker/go-units"
+	"github.com/mac-vz/vz"
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
@@ -166,7 +166,7 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 
 	natAttachment := vz.NewNATNetworkDeviceAttachment()
 	networkConfig := vz.NewVirtioNetworkDeviceConfiguration(natAttachment)
-	networkConfig.SetMacAddress(vz.NewMACAddress(macAddr))
+	networkConfig.SetMACAddress(vz.NewMACAddress(macAddr))
 
 	config.SetNetworkDevicesVirtualMachineConfiguration([]*vz.VirtioNetworkDeviceConfiguration{
 		networkConfig,
