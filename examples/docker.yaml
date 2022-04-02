@@ -38,3 +38,6 @@ probes:
         exit 1
       fi
     hint: See "/var/log/cloud-init-output.log". in the guest
+hostResolver:
+  hosts:
+    host.docker.internal: host.macvz.internal

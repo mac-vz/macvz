@@ -14,6 +14,7 @@ type MacVZYaml struct {
 	PortForwards []PortForward `yaml:"portForwards,omitempty" json:"portForwards,omitempty"`
 	Provision    []Provision   `yaml:"provision,omitempty" json:"provision,omitempty"`
 	Probes       []Probe       `yaml:"probes,omitempty" json:"probes,omitempty"`
+	HostResolver HostResolver  `yaml:"hostResolver,omitempty" json:"hostResolver,omitempty"`
 }
 
 type Image struct {
@@ -86,4 +87,10 @@ type PortForward struct {
 	HostSocket        string `yaml:"hostSocket,omitempty" json:"hostSocket,omitempty"`
 	Proto             Proto  `yaml:"proto,omitempty" json:"proto,omitempty"`
 	Ignore            bool   `yaml:"ignore,omitempty" json:"ignore,omitempty"`
+}
+
+type HostResolver struct {
+	Enabled *bool             `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	IPv6    *bool             `yaml:"ipv6,omitempty" json:"ipv6,omitempty"`
+	Hosts   map[string]string `yaml:"hosts,omitempty" json:"hosts,omitempty"`
 }

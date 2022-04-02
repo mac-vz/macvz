@@ -47,6 +47,7 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 }
 
 func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
+	logrus.Println("======DNS Handler=======")
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		fallbackIPs := []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("1.1.1.1")}
@@ -254,6 +255,7 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
+	logrus.Println("========REQ==========")
 	switch req.Opcode {
 	case dns.OpcodeQuery:
 		h.handleQuery(w, req)
@@ -272,6 +274,7 @@ func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (
 		addr := fmt.Sprintf("127.0.0.1:%d", udpLocalPort)
 		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}
 		server.udp = s
+		logrus.Println("======DNS UDP=======")
 		go func() {
 			if e := s.ListenAndServe(); e != nil {
 				panic(e)
@@ -282,6 +285,7 @@ func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (
 		addr := fmt.Sprintf("127.0.0.1:%d", tcpLocalPort)
 		s := &dns.Server{Net: "tcp", Addr: addr, Handler: h}
 		server.tcp = s
+		logrus.Println("======DNS TCP=======")
 		go func() {
 			if e := s.ListenAndServe(); e != nil {
 				panic(e)

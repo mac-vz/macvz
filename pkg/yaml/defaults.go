@@ -63,6 +63,19 @@ func FillDefault(y, d, o *MacVZYaml, filePath string) {
 		y.MACAddress = pointer.String(vz.NewRandomLocallyAdministeredMACAddress().String())
 	}
 
+	hosts := make(map[string]string)
+	// Values can be either names or IP addresses. Name values are canonicalized in the hostResolver.
+	for k, v := range d.HostResolver.Hosts {
+		hosts[Cname(k)] = v
+	}
+	for k, v := range y.HostResolver.Hosts {
+		hosts[Cname(k)] = v
+	}
+	for k, v := range o.HostResolver.Hosts {
+		hosts[Cname(k)] = v
+	}
+	y.HostResolver.Hosts = hosts
+
 	y.Provision = append(append(o.Provision, y.Provision...), d.Provision...)
 	for i := range y.Provision {
 		provision := &y.Provision[i]
@@ -117,6 +130,28 @@ func FillDefault(y, d, o *MacVZYaml, filePath string) {
 	}
 	if y.SSH.ForwardAgent == nil {
 		y.SSH.ForwardAgent = pointer.Bool(false)
+	}
+
+	// If both `useHostResolved` and `HostResolver.Enabled` are defined in the same config,
+	// then the deprecated `useHostResolved` setting is silently ignored.
+	if y.HostResolver.Enabled == nil {
+		y.HostResolver.Enabled = d.HostResolver.Enabled
+	}
+	if o.HostResolver.Enabled != nil {
+		y.HostResolver.Enabled = o.HostResolver.Enabled
+	}
+	if y.HostResolver.Enabled == nil {
+		y.HostResolver.Enabled = pointer.Bool(true)
+	}
+
+	if y.HostResolver.IPv6 == nil {
+		y.HostResolver.IPv6 = d.HostResolver.IPv6
+	}
+	if o.HostResolver.IPv6 != nil {
+		y.HostResolver.IPv6 = o.HostResolver.IPv6
+	}
+	if y.HostResolver.IPv6 == nil {
+		y.HostResolver.IPv6 = pointer.Bool(false)
 	}
 
 	// Combine all mounts; highest priority entry determines writable status.
