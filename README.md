@@ -1,3 +1,6 @@
+[![Go Report Card](https://goreportcard.com/badge/mac-vz/macvz)](https://goreportcard.com/badge/mac-vz/macvz) 
+[![GitHub](https://img.shields.io/github/license/mac-vz/macvz?color=brightgreen)](https://github.com/mac-vz/macvz/blob/main/LICENSE)
+
 # MACVZ
 
 This project is inspired by and a rewrite of lima-vm.
