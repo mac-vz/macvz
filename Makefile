@@ -6,7 +6,7 @@ GO ?= go
 
 TAR ?= tar
 
-PACKAGE := github.com/balaji113/macvz
+PACKAGE := github.com/mac-vz/macvz
 
 VERSION=1.0.0
 VERSION_TRIMMED := 1.0.0

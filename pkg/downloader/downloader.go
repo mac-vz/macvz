@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/mitchellh/go-homedir"
 	"io"
 	"net/http"
 	"os"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/cheggaaa/pb/v3"
 	"github.com/containerd/continuity/fs"
-	"github.com/mac-vz/macvz/pkg/localpathutil"
 	"github.com/mattn/go-isatty"
 	"github.com/opencontainers/go-digest"
 	"github.com/sirupsen/logrus"
@@ -239,7 +239,7 @@ func canonicalLocalPath(s string) (string, error) {
 		}
 		return res, nil
 	}
-	return localpathutil.Expand(s)
+	return homedir.Expand(s)
 }
 
 func copyLocal(dst, src string, expectedDigest digest.Digest) error {

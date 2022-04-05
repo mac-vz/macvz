@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/mac-vz/macvz/pkg/sshutil"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"io"
 	"io/fs"
 	"os"
@@ -13,10 +14,9 @@ import (
 	"time"
 
 	"github.com/mac-vz/macvz/pkg/iso9660util"
-	"github.com/mac-vz/macvz/pkg/localpathutil"
 	"github.com/mac-vz/macvz/pkg/osutil"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
-	"github.com/mac-vz/macvz/pkg/yaml"
+	"github.com/mitchellh/go-homedir"
 )
 
 func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
@@ -52,7 +52,7 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 	}
 
 	for _, f := range y.Mounts {
-		expanded, err := localpathutil.Expand(f.Location)
+		expanded, err := homedir.Expand(f.Location)
 		if err != nil {
 			return err
 		}
