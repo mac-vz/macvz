@@ -10,8 +10,8 @@ import (
 	"errors"
 
 	"github.com/docker/go-units"
-	"github.com/mac-vz/macvz/pkg/localpathutil"
 	"github.com/mac-vz/macvz/pkg/osutil"
+	"github.com/mitchellh/go-homedir"
 )
 
 func Validate(y MacVZYaml, warn bool) error {
@@ -22,17 +22,17 @@ func Validate(y MacVZYaml, warn bool) error {
 	for i, f := range y.Images {
 
 		if !strings.Contains(f.Kernel, "://") {
-			if _, err := localpathutil.Expand(f.Kernel); err != nil {
+			if _, err := homedir.Expand(f.Kernel); err != nil {
 				return fmt.Errorf("field `images[%d].kernel` refers to an invalid local file path: %q: %w", i, f.Kernel, err)
 			}
 		}
 		if !strings.Contains(f.Base, "://") {
-			if _, err := localpathutil.Expand(f.Base); err != nil {
+			if _, err := homedir.Expand(f.Base); err != nil {
 				return fmt.Errorf("field `images[%d].base` refers to an invalid local file path: %q: %w", i, f.Base, err)
 			}
 		}
 		if !strings.Contains(f.Initram, "://") {
-			if _, err := localpathutil.Expand(f.Initram); err != nil {
+			if _, err := homedir.Expand(f.Initram); err != nil {
 				return fmt.Errorf("field `images[%d].initram` refers to an invalid local file path: %q: %w", i, f.Initram, err)
 			}
 		}
@@ -67,7 +67,7 @@ func Validate(y MacVZYaml, warn bool) error {
 			return fmt.Errorf("field `mounts[%d].location` must be an absolute path, got %q",
 				i, f.Location)
 		}
-		loc, err := localpathutil.Expand(f.Location)
+		loc, err := homedir.Expand(f.Location)
 		if err != nil {
 			return fmt.Errorf("field `mounts[%d].location` refers to an unexpandable path: %q: %w", i, f.Location, err)
 		}

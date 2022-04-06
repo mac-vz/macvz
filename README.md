@@ -1,11 +1,11 @@
+[![Go Report Card](https://goreportcard.com/badge/mac-vz/macvz)](https://goreportcard.com/badge/mac-vz/macvz) 
+[![GitHub](https://img.shields.io/github/license/mac-vz/macvz?color=brightgreen)](https://github.com/mac-vz/macvz/blob/main/LICENSE)
+
 # MACVZ
 
 This project is inspired by and a rewrite of lima-vm.
 
 The major difference is macvz uses macOS new [Virtualization API](https://developer.apple.com/documentation/virtualization?language=objc) instead of QEMU for spinning up VM's.
-
-References used in the project,
-1. Go Binding for MAC Virtualization API - https://github.com/Code-Hex/vz
 
 # Requirements
 - Higher or equal to macOS monterey (12.2)
