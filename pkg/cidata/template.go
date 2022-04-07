@@ -8,9 +8,9 @@ import (
 	"io/fs"
 	"path/filepath"
 
-	"github.com/balaji113/macvz/pkg/iso9660util"
+	"github.com/mac-vz/macvz/pkg/iso9660util"
 
-	"github.com/balaji113/macvz/pkg/templateutil"
+	"github.com/mac-vz/macvz/pkg/templateutil"
 )
 
 //go:embed cidata.TEMPLATE.d

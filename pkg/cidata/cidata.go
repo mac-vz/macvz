@@ -3,7 +3,8 @@ package cidata
 import (
 	"errors"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/sshutil"
+	"github.com/mac-vz/macvz/pkg/sshutil"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"io"
 	"io/fs"
 	"os"
@@ -12,11 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/balaji113/macvz/pkg/iso9660util"
-	"github.com/balaji113/macvz/pkg/localpathutil"
-	"github.com/balaji113/macvz/pkg/osutil"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/iso9660util"
+	"github.com/mac-vz/macvz/pkg/osutil"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mitchellh/go-homedir"
 )
 
 func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
@@ -52,7 +52,7 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 	}
 
 	for _, f := range y.Mounts {
-		expanded, err := localpathutil.Expand(f.Location)
+		expanded, err := homedir.Expand(f.Location)
 		if err != nil {
 			return err
 		}

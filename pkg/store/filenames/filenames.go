@@ -31,12 +31,29 @@ const (
 	BaseDisk    = "basedisk"
 	Kernel      = "vmlinux"
 	Initrd      = "initrd"
-	VZPid       = "macvz.pid"
+
+	HaStdoutLog = "ha.stdout.log"
+	HaStderrLog = "ha.stderr.log"
+
+	VZPid       = "vz.pid"
 	VZStdoutLog = "vz.stdout.log"
 	VZStderrLog = "vz.stderr.log"
+
+	SSHSock   = "ssh.sock"
+	SocketDir = "sockets"
 
 	VZNetServer  = "unixgram-server.sock"
 	VZNetClient  = "unixgram-client.sock"
 	GVisorSock   = "network.sock"
 	VZGVisorSock = "vzgvisor.sock"
 )
+
+// LongestSock is the longest socket name.
+// On macOS, the full path of the socket (excluding the NUL terminator) must be less than 104 characters.
+// See unix(4).
+//
+// On Linux, the full path must be less than 108 characters.
+//
+// ssh appends 16 bytes of random characters when it first creates the socket:
+// https://github.com/openssh/openssh-portable/blob/V_8_7_P1/mux.c#L1271-L1285
+const LongestSock = SSHSock + ".1234567890123456"

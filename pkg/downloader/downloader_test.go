@@ -1,6 +1,8 @@
 package downloader
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"testing"
 
@@ -8,13 +10,24 @@ import (
 	"gotest.tools/v3/assert"
 )
 
-// TODO: create a localhost HTTP server to serve the test contents without Internet
 const (
-	dummyRemoteFileURL    = "https://raw.githubusercontent.com/lima-vm/lima/7459f4587987ed014c372f17b82de1817feffa2e/README.md"
-	dummyRemoteFileDigest = "sha256:58d2de96f9d91f0acd93cb1e28bf7c42fc86079037768d6aa63b4e7e7b3c9be0"
+	dummyRemoteFileDigest = "sha256:9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08" //sha256 for test
 )
 
+func startDummyServer() *httptest.Server {
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, err := w.Write([]byte("test"))
+		if err != nil {
+			return
+		}
+	}))
+	return svr
+}
+
 func TestDownloadRemote(t *testing.T) {
+	server := startDummyServer()
+
+	dummyRemoteFileURL := server.URL
 	if testing.Short() {
 		t.Skip()
 	}

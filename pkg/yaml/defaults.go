@@ -1,11 +1,21 @@
 package yaml
 
 import (
+	"bytes"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/vz-wrapper"
+	"github.com/mac-vz/macvz/pkg/guestagent/api"
+	"github.com/mac-vz/macvz/pkg/osutil"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/vz"
 	"github.com/sirupsen/logrus"
 	"github.com/xorcare/pointer"
+	"net"
+	"os"
+	osuser "os/user"
+	"path/filepath"
 	"runtime"
+	"strings"
+	"text/template"
 )
 
 func FillDefault(y, d, o *MacVZYaml, filePath string) {
@@ -72,6 +82,43 @@ func FillDefault(y, d, o *MacVZYaml, filePath string) {
 		}
 	}
 
+	y.PortForwards = append(append(o.PortForwards, y.PortForwards...), d.PortForwards...)
+	instDir := filepath.Dir(filePath)
+	for i := range y.PortForwards {
+		FillPortForwardDefaults(&y.PortForwards[i], instDir)
+		// After defaults processing the singular HostPort and GuestPort values should not be used again.
+	}
+
+	if y.SSH.LocalPort == nil {
+		y.SSH.LocalPort = d.SSH.LocalPort
+	}
+	if o.SSH.LocalPort != nil {
+		y.SSH.LocalPort = o.SSH.LocalPort
+	}
+	if y.SSH.LocalPort == nil {
+		// y.SSH.LocalPort value is not filled here (filled by the hostagent)
+		y.SSH.LocalPort = pointer.Int(0)
+	}
+	if y.SSH.LoadDotSSHPubKeys == nil {
+		y.SSH.LoadDotSSHPubKeys = d.SSH.LoadDotSSHPubKeys
+	}
+	if o.SSH.LoadDotSSHPubKeys != nil {
+		y.SSH.LoadDotSSHPubKeys = o.SSH.LoadDotSSHPubKeys
+	}
+	if y.SSH.LoadDotSSHPubKeys == nil {
+		y.SSH.LoadDotSSHPubKeys = pointer.Bool(true)
+	}
+
+	if y.SSH.ForwardAgent == nil {
+		y.SSH.ForwardAgent = d.SSH.ForwardAgent
+	}
+	if o.SSH.ForwardAgent != nil {
+		y.SSH.ForwardAgent = o.SSH.ForwardAgent
+	}
+	if y.SSH.ForwardAgent == nil {
+		y.SSH.ForwardAgent = pointer.Bool(false)
+	}
+
 	// Combine all mounts; highest priority entry determines writable status.
 	// Only works for exact matches; does not normalize case or resolve symlinks.
 	mounts := make([]Mount, 0, len(d.Mounts)+len(y.Mounts)+len(o.Mounts))
@@ -110,4 +157,85 @@ func NewArch(arch string) Arch {
 
 func ResolveArch() Arch {
 	return NewArch(runtime.GOARCH)
+}
+
+func FillPortForwardDefaults(rule *PortForward, instDir string) {
+	if rule.Proto == "" {
+		rule.Proto = TCP
+	}
+	if rule.GuestIP == nil {
+		if rule.GuestIPMustBeZero {
+			rule.GuestIP = net.IPv4zero
+		} else {
+			rule.GuestIP = api.IPv4loopback1
+		}
+	}
+	if rule.HostIP == nil {
+		rule.HostIP = api.IPv4loopback1
+	}
+	if rule.GuestPortRange[0] == 0 && rule.GuestPortRange[1] == 0 {
+		if rule.GuestPort == 0 {
+			rule.GuestPortRange[0] = 1
+			rule.GuestPortRange[1] = 65535
+		} else {
+			rule.GuestPortRange[0] = rule.GuestPort
+			rule.GuestPortRange[1] = rule.GuestPort
+		}
+	}
+	if rule.HostPortRange[0] == 0 && rule.HostPortRange[1] == 0 {
+		if rule.HostPort == 0 {
+			rule.HostPortRange = rule.GuestPortRange
+		} else {
+			rule.HostPortRange[0] = rule.HostPort
+			rule.HostPortRange[1] = rule.HostPort
+		}
+	}
+	if rule.GuestSocket != "" {
+		tmpl, err := template.New("").Parse(rule.GuestSocket)
+		if err == nil {
+			user, _ := osutil.MacVZUser(false)
+			data := map[string]string{
+				"Home": fmt.Sprintf("/home/%s.linux", user.Username),
+				"UID":  user.Uid,
+				"User": user.Username,
+			}
+			var out bytes.Buffer
+			if err := tmpl.Execute(&out, data); err == nil {
+				rule.GuestSocket = out.String()
+			} else {
+				logrus.WithError(err).Warnf("Couldn't process guestSocket %q as a template", rule.GuestSocket)
+			}
+		}
+	}
+	if rule.HostSocket != "" {
+		tmpl, err := template.New("").Parse(rule.HostSocket)
+		if err == nil {
+			user, _ := osuser.Current()
+			home, _ := os.UserHomeDir()
+			data := map[string]string{
+				"Dir":  instDir,
+				"Home": home,
+				"Name": filepath.Base(instDir),
+				"UID":  user.Uid,
+				"User": user.Username,
+			}
+			var out bytes.Buffer
+			if err := tmpl.Execute(&out, data); err == nil {
+				rule.HostSocket = out.String()
+			} else {
+				logrus.WithError(err).Warnf("Couldn't process hostSocket %q as a template", rule.HostSocket)
+			}
+		}
+		if !filepath.IsAbs(rule.HostSocket) {
+			rule.HostSocket = filepath.Join(instDir, filenames.SocketDir, rule.HostSocket)
+		}
+	}
+}
+
+func Cname(host string) string {
+	host = strings.ToLower(host)
+	if !strings.HasSuffix(host, ".") {
+		host += "."
+	}
+	return host
 }

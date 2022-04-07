@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	hostagentevents "github.com/mac-vz/macvz/pkg/hostagent/events"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
 
-	"github.com/balaji113/macvz/pkg/store"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/vzrun"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/vzrun"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/sirupsen/logrus"
 )
 
@@ -51,8 +52,8 @@ func Start(ctx context.Context, inst *store.Instance) error {
 	if err != nil {
 		return err
 	}
-	haStdoutPath := filepath.Join(inst.Dir, filenames.VZStdoutLog)
-	haStderrPath := filepath.Join(inst.Dir, filenames.VZStderrLog)
+	haStdoutPath := filepath.Join(inst.Dir, filenames.HaStdoutLog)
+	haStderrPath := filepath.Join(inst.Dir, filenames.HaStderrLog)
 	if err := os.RemoveAll(haStdoutPath); err != nil {
 		return err
 	}
@@ -89,10 +90,11 @@ func Start(ctx context.Context, inst *store.Instance) error {
 	if err := waitHostAgentStart(ctx, vzPid, haStderrPath); err != nil {
 		return err
 	}
+	begin := time.Now() // used for logrus propagation
 
 	watchErrCh := make(chan error)
 	go func() {
-		//watchErrCh <- watchHostAgentEvents(ctx, inst, haStdoutPath, haStderrPath, begin)
+		watchErrCh <- watchHostAgentEvents(ctx, inst, haStdoutPath, haStderrPath, begin)
 		close(watchErrCh)
 	}()
 	waitErrCh := make(chan error)
@@ -124,4 +126,86 @@ func waitHostAgentStart(ctx context.Context, screenFile, haStderrPath string) er
 			return fmt.Errorf("hostagent (%q) did not start up in %v (hint: see %q)", screenFile, deadlineDuration, haStderrPath)
 		}
 	}
+}
+
+func watchHostAgentEvents(ctx context.Context, inst *store.Instance, haStdoutPath, haStderrPath string, begin time.Time) error {
+	ctx2, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	var (
+		receivedRunningEvent bool
+		err                  error
+	)
+	onEvent := func(ev hostagentevents.Event) bool {
+		if len(ev.Status.Errors) > 0 {
+			logrus.Errorf("%+v", ev.Status.Errors)
+		}
+		if ev.Status.Exiting {
+			err = fmt.Errorf("exiting, status=%+v (hint: see %q)", ev.Status, haStderrPath)
+			return true
+		} else if ev.Status.Running {
+			receivedRunningEvent = true
+			if ev.Status.Degraded {
+				logrus.Warnf("DEGRADED. The VM seems running, but file sharing and port forwarding may not work. (hint: see %q)", haStderrPath)
+				err = fmt.Errorf("degraded, status=%+v", ev.Status)
+				return true
+			}
+
+			logrus.Infof("READY. Run `%s` to open the shell.", LimactlShellCmd(inst.Name))
+			ShowMessage(inst)
+			err = nil
+			return true
+		}
+		return false
+	}
+
+	if xerr := hostagentevents.Watch(ctx2, haStdoutPath, haStderrPath, begin, onEvent); xerr != nil {
+		return xerr
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if !receivedRunningEvent {
+		return errors.New("did not receive an event with the \"running\" status")
+	}
+
+	return nil
+}
+
+func LimactlShellCmd(instName string) string {
+	shellCmd := fmt.Sprintf("limactl shell %s", instName)
+	if instName == "default" {
+		shellCmd = "lima"
+	}
+	return shellCmd
+}
+
+func ShowMessage(inst *store.Instance) error {
+	//if inst.Message == "" {
+	//	return nil
+	//}
+	//t, err := template.New("message").Parse(inst.Message)
+	//if err != nil {
+	//	return err
+	//}
+	//data, err := store.AddGlobalFields(inst)
+	//if err != nil {
+	//	return err
+	//}
+	//var b bytes.Buffer
+	//if err := t.Execute(&b, data); err != nil {
+	//	return err
+	//}
+	//scanner := bufio.NewScanner(&b)
+	//logrus.Infof("Message from the instance %q:", inst.Name)
+	//for scanner.Scan() {
+	//	// Avoid prepending logrus "INFO" header, for ease of copypasting
+	//	fmt.Println(scanner.Text())
+	//}
+	//if err := scanner.Err(); err != nil {
+	//	return err
+	//}
+	return nil
 }

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/balaji113/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/spf13/cobra"
 )
 

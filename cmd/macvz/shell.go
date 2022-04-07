@@ -3,14 +3,13 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/osutil"
 	"os"
 	"os/exec"
 	"strings"
 
 	"github.com/alessio/shellescape"
-	"github.com/balaji113/macvz/pkg/sshutil"
-	"github.com/balaji113/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/sshutil"
+	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mattn/go-isatty"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -113,13 +112,6 @@ func shellAction(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	ipAddress, err := osutil.GetIPFromMac(cmd.Context(), *y.MACAddress)
-	if err != nil {
-		return err
-	}
-
-	u, err := osutil.MacVZUser(true)
-
 	sshOpts, err := sshutil.SSHOpts(inst.Dir, true, false)
 	if err != nil {
 		return err
@@ -136,7 +128,7 @@ func shellAction(cmd *cobra.Command, args []string) error {
 	}
 	sshArgs = append(sshArgs, []string{
 		"-q",
-		fmt.Sprintf("%s@%s", u.Username, ipAddress),
+		fmt.Sprintf("%s", sshutil.SSHRemoteUser(*y.MACAddress)),
 		"--",
 		script,
 	}...)

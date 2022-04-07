@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/balaji113/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"os"

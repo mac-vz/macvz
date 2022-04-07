@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"github.com/mac-vz/macvz/pkg/osutil"
 	"io"
 	"net/http"
 	"net/url"
@@ -11,10 +12,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/balaji113/macvz/pkg/start"
-	"github.com/balaji113/macvz/pkg/store"
-	"github.com/balaji113/macvz/pkg/store/filenames"
-	"github.com/balaji113/macvz/pkg/yaml"
+	"github.com/mac-vz/macvz/pkg/start"
+	"github.com/mac-vz/macvz/pkg/store"
+	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	yaml2 "gopkg.in/yaml.v2"
@@ -151,6 +152,14 @@ func startAction(cmd *cobra.Command, args []string) error {
 	if len(inst.Errors) > 0 {
 		return fmt.Errorf("errors inspecting instance: %+v", inst.Errors)
 	}
+
+	// the full path of the socket name must be less than UNIX_PATH_MAX chars.
+	maxSockName := filepath.Join(inst.Dir, filenames.LongestSock)
+	if len(maxSockName) >= osutil.UnixPathMax {
+		return fmt.Errorf("instance name %q too long: %q must be less than UNIX_PATH_MAX=%d characters, but is %d",
+			inst.Name, maxSockName, osutil.UnixPathMax, len(maxSockName))
+	}
+
 	switch inst.Status {
 	case store.StatusRunning:
 		logrus.Infof("The instance %q is already running. Run `%s` to open the shell.",

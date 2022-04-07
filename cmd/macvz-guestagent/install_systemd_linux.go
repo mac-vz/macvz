@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/balaji113/macvz/pkg/templateutil"
+	"github.com/mac-vz/macvz/pkg/templateutil"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )

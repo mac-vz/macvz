@@ -3,8 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/store/dirnames"
-	"github.com/balaji113/macvz/pkg/version"
+	"github.com/mac-vz/macvz/pkg/store/dirnames"
+	"github.com/mac-vz/macvz/pkg/version"
 	"os"
 	"strings"
 
