@@ -16,10 +16,9 @@ import (
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/osutil"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
-	"github.com/mitchellh/go-homedir"
 )
 
-func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml, udpDNSLocalPort int, tcpDNSLocalPort int) error {
+func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 	if err := yaml.Validate(*y, false); err != nil {
 		return err
 	}
@@ -53,18 +52,7 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml, udpDNSLocalPort in
 		args.SSHPubKeys = append(args.SSHPubKeys, f.Content)
 	}
 
-	for _, f := range y.Mounts {
-		expanded, err := homedir.Expand(f.Location)
-		if err != nil {
-			return err
-		}
-		args.Mounts = append(args.Mounts, expanded)
-	}
-
-	if *y.HostResolver.Enabled {
-		args.UDPDNSLocalPort = udpDNSLocalPort
-		args.TCPDNSLocalPort = tcpDNSLocalPort
-	}
+	args.Hosts = y.HostResolver.Hosts
 
 	if err := ValidateTemplateArgs(args); err != nil {
 		return err

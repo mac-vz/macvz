@@ -4,7 +4,6 @@ package dns
 
 import (
 	"fmt"
-	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -46,8 +45,15 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 	return dns.ClientConfigFromReader(r)
 }
 
+func Cname(host string) string {
+	host = strings.ToLower(host)
+	if !strings.HasSuffix(host, ".") {
+		host += "."
+	}
+	return host
+}
+
 func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
-	logrus.Println("======DNS Handler=======")
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		fallbackIPs := []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("1.1.1.1")}
@@ -72,7 +78,7 @@ func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
 		if ip := net.ParseIP(address); ip != nil {
 			h.ip[host] = ip
 		} else {
-			h.cname[host] = yaml.Cname(address)
+			h.cname[host] = Cname(address)
 		}
 	}
 	return h, nil
@@ -257,8 +263,10 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	switch req.Opcode {
 	case dns.OpcodeQuery:
+		logrus.Println("======DNS OPCode=======", req)
 		h.handleQuery(w, req)
 	default:
+		logrus.Println("======DNS Default=======", req)
 		h.handleDefault(w, req)
 	}
 }

@@ -5,10 +5,8 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"io/fs"
-	"path/filepath"
-
 	"github.com/mac-vz/macvz/pkg/iso9660util"
+	"io/fs"
 
 	"github.com/mac-vz/macvz/pkg/templateutil"
 )
@@ -32,7 +30,6 @@ type TemplateArgs struct {
 	User            string // user name
 	UID             int
 	SSHPubKeys      []string
-	Mounts          []string // abs path, accessible by the User
 	Containerd      Containerd
 	Networks        []Network
 	SlirpNICName    string
@@ -42,6 +39,7 @@ type TemplateArgs struct {
 	UDPDNSLocalPort int
 	TCPDNSLocalPort int
 	Env             map[string]string
+	Hosts           map[string]string
 	DNSAddresses    []string
 }
 
@@ -54,11 +52,6 @@ func ValidateTemplateArgs(args TemplateArgs) error {
 	}
 	if len(args.SSHPubKeys) == 0 {
 		return errors.New("field SSHPubKeys must be set")
-	}
-	for i, f := range args.Mounts {
-		if !filepath.IsAbs(f) {
-			return fmt.Errorf("field mounts[%d] must be absolute, got %q", i, f)
-		}
 	}
 	return nil
 }

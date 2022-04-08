@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"github.com/lima-vm/sshocker/pkg/ssh"
 	"github.com/mac-vz/macvz/pkg/cidata"
-	"github.com/mac-vz/macvz/pkg/hostagent/dns"
 	"github.com/mac-vz/macvz/pkg/hostagent/events"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/vzrun"
@@ -71,19 +70,7 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 		AdditionalArgs: sshutil.SSHArgsFromOpts(sshOpts),
 	}
 
-	var udpDNSLocalPort, tcpDNSLocalPort int
-	if *y.HostResolver.Enabled {
-		udpDNSLocalPort, err = findFreeUDPLocalPort()
-		if err != nil {
-			return nil, err
-		}
-		tcpDNSLocalPort, err = findFreeTCPLocalPort()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if err := cidata.GenerateISO9660(inst.Dir, instName, y, udpDNSLocalPort, tcpDNSLocalPort); err != nil {
+	if err := cidata.GenerateISO9660(inst.Dir, instName, y); err != nil {
 		return nil, err
 	}
 
@@ -101,15 +88,13 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 	rules = append(rules, rule)
 
 	a := &HostAgent{
-		y:               y,
-		instDir:         inst.Dir,
-		instName:        instName,
-		sshConfig:       sshConfig,
-		udpDNSLocalPort: udpDNSLocalPort,
-		tcpDNSLocalPort: tcpDNSLocalPort,
-		sigintCh:        sigintCh,
-		eventEnc:        json.NewEncoder(os.Stdout),
-		portForwarder:   newPortForwarder(sshConfig, rules),
+		y:             y,
+		instDir:       inst.Dir,
+		instName:      instName,
+		sshConfig:     sshConfig,
+		sigintCh:      sigintCh,
+		eventEnc:      json.NewEncoder(os.Stdout),
+		portForwarder: newPortForwarder(sshConfig, rules),
 	}
 
 	return a, nil
@@ -168,18 +153,6 @@ func (a *HostAgent) Run(ctx context.Context) error {
 		}
 		a.emitEvent(ctx, exitingEv)
 	}()
-
-	if *a.y.HostResolver.Enabled {
-		hosts := a.y.HostResolver.Hosts
-		hosts["host.macvz.internal."] = "192.168.205.1"
-		hosts[fmt.Sprintf("macvz-%s.", a.instName)] = "192.168.205.1"
-		dnsServer, err := dns.Start(a.udpDNSLocalPort, a.tcpDNSLocalPort, *a.y.HostResolver.IPv6, hosts)
-		logrus.Println("======DNS Server started=======")
-		if err != nil {
-			return fmt.Errorf("cannot start DNS server: %w", err)
-		}
-		defer dnsServer.Shutdown()
-	}
 
 	stBooting := events.Status{}
 	a.emitEvent(ctx, events.Event{Status: stBooting})

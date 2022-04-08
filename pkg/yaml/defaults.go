@@ -134,16 +134,6 @@ func FillDefault(y, d, o *MacVZYaml, filePath string) {
 
 	// If both `useHostResolved` and `HostResolver.Enabled` are defined in the same config,
 	// then the deprecated `useHostResolved` setting is silently ignored.
-	if y.HostResolver.Enabled == nil {
-		y.HostResolver.Enabled = d.HostResolver.Enabled
-	}
-	if o.HostResolver.Enabled != nil {
-		y.HostResolver.Enabled = o.HostResolver.Enabled
-	}
-	if y.HostResolver.Enabled == nil {
-		y.HostResolver.Enabled = pointer.Bool(true)
-	}
-
 	if y.HostResolver.IPv6 == nil {
 		y.HostResolver.IPv6 = d.HostResolver.IPv6
 	}
