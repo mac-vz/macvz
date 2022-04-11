@@ -18,7 +18,7 @@ import (
 	"github.com/mac-vz/macvz/pkg/store/filenames"
 )
 
-func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
+func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml, udpDNSLocalPort int, tcpDNSLocalPort int) error {
 	if err := yaml.Validate(*y, false); err != nil {
 		return err
 	}
@@ -53,6 +53,10 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 	}
 
 	args.Hosts = y.HostResolver.Hosts
+	if *y.HostResolver.Enabled {
+		args.UDPDNSLocalPort = udpDNSLocalPort
+		args.TCPDNSLocalPort = tcpDNSLocalPort
+	}
 
 	if err := ValidateTemplateArgs(args); err != nil {
 		return err

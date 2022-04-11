@@ -90,6 +90,7 @@ type PortForward struct {
 }
 
 type HostResolver struct {
-	IPv6  *bool             `yaml:"ipv6,omitempty" json:"ipv6,omitempty"`
-	Hosts map[string]string `yaml:"hosts,omitempty" json:"hosts,omitempty"`
+	Enabled *bool             `yaml:"enabled,omitempty" json:"enabled,omitempty"`
+	IPv6    *bool             `yaml:"ipv6,omitempty" json:"ipv6,omitempty"`
+	Hosts   map[string]string `yaml:"hosts,omitempty" json:"hosts,omitempty"`
 }

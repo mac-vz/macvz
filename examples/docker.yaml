@@ -39,5 +39,6 @@ probes:
       fi
     hint: See "/var/log/cloud-init-output.log". in the guest
 hostResolver:
+  enabled: true
   hosts:
     host.docker.internal: host.macvz.internal
