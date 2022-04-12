@@ -263,10 +263,8 @@ func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
 func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 	switch req.Opcode {
 	case dns.OpcodeQuery:
-		logrus.Println("======DNS OPCode=======", req)
 		h.handleQuery(w, req)
 	default:
-		logrus.Println("======DNS Default=======", req)
 		h.handleDefault(w, req)
 	}
 }
@@ -281,7 +279,6 @@ func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (
 		addr := fmt.Sprintf("0.0.0.0:%d", udpLocalPort)
 		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}
 		server.udp = s
-		logrus.Println("======DNS UDP=======")
 		go func() {
 			if e := s.ListenAndServe(); e != nil {
 				panic(e)
@@ -292,7 +289,6 @@ func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (
 		addr := fmt.Sprintf("0.0.0.0:%d", tcpLocalPort)
 		s := &dns.Server{Net: "tcp", Addr: addr, Handler: h}
 		server.tcp = s
-		logrus.Println("======DNS TCP=======")
 		go func() {
 			if e := s.ListenAndServe(); e != nil {
 				panic(e)

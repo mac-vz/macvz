@@ -47,7 +47,6 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 }
 
 func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
-	logrus.Println("======DNS Handler=======")
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		fallbackIPs := []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("1.1.1.1")}

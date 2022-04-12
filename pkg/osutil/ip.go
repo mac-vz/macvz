@@ -3,7 +3,6 @@ package osutil
 import (
 	"bufio"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"regexp"
@@ -35,7 +34,6 @@ func GetIPFromMac(mac string) (string, error) {
 }
 
 func getIPAddressFromFile(mac, path string) (string, error) {
-	logrus.Debugf("Searching for %s in %s ...", mac, path)
 	file, err := os.Open(path)
 	if err != nil {
 		return "", err
@@ -46,11 +44,9 @@ func getIPAddressFromFile(mac, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	logrus.Debugf("Found %d entries in %s!", len(dhcpEntries), path)
+
 	for _, dhcpEntry := range dhcpEntries {
-		logrus.Debugf("dhcp entry: %+v", dhcpEntry)
 		if dhcpEntry.HWAddress == mac {
-			logrus.Debugf("Found match: %s", mac)
 			return dhcpEntry.IPAddress, nil
 		}
 	}

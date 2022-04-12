@@ -155,13 +155,11 @@ func isEventEmpty(ev api.Event) bool {
 
 func (a *agent) ListenAndSendEvents() {
 	tickerCh, tickerClose := a.newTicker()
-	logrus.Println("======DNS Server starting=======")
 	hosts, err := godotenv.Read("/etc/macvz_hosts")
 	if err != nil {
 		logrus.Warn("Unable to fetch predefined hosts")
 	}
 	dnsServer, _ := dns.Start(23, 24, true, hosts)
-	logrus.Println("======DNS Server started=======", hosts)
 	defer dnsServer.Shutdown()
 
 	defer tickerClose()

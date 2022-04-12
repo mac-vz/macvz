@@ -2,11 +2,11 @@
 set -eu
 
 INFO() {
-	echo "LIMA| $*"
+	echo "MACVZ| $*"
 }
 
 WARNING() {
-	echo "LIMA| WARNING: $*"
+	echo "MACVZ| WARNING: $*"
 }
 
 whoami

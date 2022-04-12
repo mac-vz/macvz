@@ -254,7 +254,6 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 
 				//VM Write and Host reads
 				listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
-					logrus.Println("Connected")
 					background, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					if err != nil {
