@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"github.com/mac-vz/macvz/pkg/guestagent/dns"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"net"
 	"reflect"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/elastic/go-libaudit/v2"
 	"github.com/elastic/go-libaudit/v2/auparse"
+	"github.com/joho/godotenv"
 	"github.com/mac-vz/macvz/pkg/guestagent/api"
 	"github.com/mac-vz/macvz/pkg/guestagent/iptables"
 	"github.com/mac-vz/macvz/pkg/guestagent/procnettcp"
@@ -153,6 +155,13 @@ func isEventEmpty(ev api.Event) bool {
 
 func (a *agent) ListenAndSendEvents() {
 	tickerCh, tickerClose := a.newTicker()
+	hosts, err := godotenv.Read("/etc/macvz_hosts")
+	if err != nil {
+		logrus.Warn("Unable to fetch predefined hosts")
+	}
+	dnsServer, _ := dns.Start(23, 24, true, hosts)
+	defer dnsServer.Shutdown()
+
 	defer tickerClose()
 	var st eventState
 	for {

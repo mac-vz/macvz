@@ -4,7 +4,6 @@ package dns
 
 import (
 	"fmt"
-	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/miekg/dns"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -46,6 +45,14 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 	return dns.ClientConfigFromReader(r)
 }
 
+func Cname(host string) string {
+	host = strings.ToLower(host)
+	if !strings.HasSuffix(host, ".") {
+		host += "."
+	}
+	return host
+}
+
 func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
@@ -71,7 +78,7 @@ func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
 		if ip := net.ParseIP(address); ip != nil {
 			h.ip[host] = ip
 		} else {
-			h.cname[host] = yaml.Cname(address)
+			h.cname[host] = Cname(address)
 		}
 	}
 	return h, nil
@@ -272,7 +279,6 @@ func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (
 		addr := fmt.Sprintf("0.0.0.0:%d", udpLocalPort)
 		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}
 		server.udp = s
-		logrus.Println("======DNS UDP=======")
 		go func() {
 			if e := s.ListenAndServe(); e != nil {
 				panic(e)
@@ -283,7 +289,6 @@ func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (
 		addr := fmt.Sprintf("0.0.0.0:%d", tcpLocalPort)
 		s := &dns.Server{Net: "tcp", Addr: addr, Handler: h}
 		server.tcp = s
-		logrus.Println("======DNS TCP=======")
 		go func() {
 			if e := s.ListenAndServe(); e != nil {
 				panic(e)

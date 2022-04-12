@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/lima-vm/sshocker/pkg/ssh"
+	"github.com/mac-vz/macvz/pkg/cidata"
+	"github.com/mac-vz/macvz/pkg/hostagent/dns"
 	"github.com/mac-vz/macvz/pkg/hostagent/events"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/vzrun"
@@ -32,7 +34,11 @@ type HostAgent struct {
 	instName      string
 	sshConfig     *ssh.SSHConfig
 	portForwarder *portForwarder
-	onClose       []func() error // LIFO
+
+	udpDNSLocalPort int
+	tcpDNSLocalPort int
+
+	onClose []func() error // LIFO
 
 	sigintCh chan os.Signal
 
@@ -65,6 +71,22 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 		AdditionalArgs: sshutil.SSHArgsFromOpts(sshOpts),
 	}
 
+	var udpDNSLocalPort, tcpDNSLocalPort int
+	if *y.HostResolver.Enabled {
+		udpDNSLocalPort, err = findFreeUDPLocalPort()
+		if err != nil {
+			return nil, err
+		}
+		tcpDNSLocalPort, err = findFreeTCPLocalPort()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if err := cidata.GenerateISO9660(inst.Dir, instName, y, udpDNSLocalPort, tcpDNSLocalPort); err != nil {
+		return nil, err
+	}
+
 	rules := make([]yaml.PortForward, 0, 2+len(y.PortForwards))
 	// Block ports 22 and sshLocalPort on all IPs
 	for _, port := range []int{22} {
@@ -79,16 +101,62 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 	rules = append(rules, rule)
 
 	a := &HostAgent{
-		y:             y,
-		instDir:       inst.Dir,
-		instName:      instName,
-		sshConfig:     sshConfig,
-		sigintCh:      sigintCh,
-		eventEnc:      json.NewEncoder(os.Stdout),
-		portForwarder: newPortForwarder(sshConfig, rules),
+		y:               y,
+		instDir:         inst.Dir,
+		instName:        instName,
+		sshConfig:       sshConfig,
+		udpDNSLocalPort: udpDNSLocalPort,
+		tcpDNSLocalPort: tcpDNSLocalPort,
+		sigintCh:        sigintCh,
+		eventEnc:        json.NewEncoder(os.Stdout),
+		portForwarder:   newPortForwarder(sshConfig, rules),
 	}
 
 	return a, nil
+}
+
+func findFreeTCPLocalPort() (int, error) {
+	lAddr0, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	l, err := net.ListenTCP("tcp4", lAddr0)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	lAddr := l.Addr()
+	lTCPAddr, ok := lAddr.(*net.TCPAddr)
+	if !ok {
+		return 0, fmt.Errorf("expected *net.TCPAddr, got %v", lAddr)
+	}
+	port := lTCPAddr.Port
+	if port <= 0 {
+		return 0, fmt.Errorf("unexpected port %d", port)
+	}
+	return port, nil
+}
+
+func findFreeUDPLocalPort() (int, error) {
+	lAddr0, err := net.ResolveUDPAddr("udp4", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
+	}
+	l, err := net.ListenUDP("udp4", lAddr0)
+	if err != nil {
+		return 0, err
+	}
+	defer l.Close()
+	lAddr := l.LocalAddr()
+	lUDPAddr, ok := lAddr.(*net.UDPAddr)
+	if !ok {
+		return 0, fmt.Errorf("expected *net.UDPAddr, got %v", lAddr)
+	}
+	port := lUDPAddr.Port
+	if port <= 0 {
+		return 0, fmt.Errorf("unexpected port %d", port)
+	}
+	return port, nil
 }
 
 func (a *HostAgent) Run(ctx context.Context) error {
@@ -100,6 +168,18 @@ func (a *HostAgent) Run(ctx context.Context) error {
 		}
 		a.emitEvent(ctx, exitingEv)
 	}()
+
+	if *a.y.HostResolver.Enabled {
+		hosts := a.y.HostResolver.Hosts
+		hosts["host.macvz.internal."] = "192.168.106.1"
+		hosts[fmt.Sprintf("macvz-%s.", a.instName)] = "192.168.106.1"
+		dnsServer, err := dns.Start(a.udpDNSLocalPort, a.tcpDNSLocalPort, *a.y.HostResolver.IPv6, hosts)
+		logrus.Println("======DNS Server started=======")
+		if err != nil {
+			return fmt.Errorf("cannot start DNS server: %w", err)
+		}
+		defer dnsServer.Shutdown()
+	}
 
 	stBooting := events.Status{}
 	a.emitEvent(ctx, events.Event{Status: stBooting})
@@ -189,11 +269,11 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 	})
 
 	for {
-		_, _, err := ssh.ExecuteScript(a.sshRemote, 22, a.sshConfig, `#!/bin/bash
-true`, "Ping to keep SSH Master alive")
-		if err != nil {
-			logrus.Error("SSH Ping to guest failed", err)
-		}
+		//		_, _, err := ssh.ExecuteScript(a.sshRemote, 22, a.sshConfig, `#!/bin/bash
+		//true`, "Ping to keep SSH Master alive")
+		//		if err != nil {
+		//			logrus.Error("SSH Ping to guest failed", err)
+		//		}
 		select {
 		case <-ctx.Done():
 			return

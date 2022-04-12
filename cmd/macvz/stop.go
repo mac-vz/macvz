@@ -49,7 +49,7 @@ func stopAction(cmd *cobra.Command, args []string) error {
 
 func stopInstanceGracefully(inst *store.Instance) error {
 	if inst.Status != store.StatusRunning {
-		return fmt.Errorf("expected status %q, got %q (maybe use `limactl stop -f`?)", store.StatusRunning, inst.Status)
+		return fmt.Errorf("expected status %q, got %q (maybe use `macvz stop -f`?)", store.StatusRunning, inst.Status)
 	}
 
 	logrus.Infof("Sending SIGINT to vz process %d", inst.VZPid)

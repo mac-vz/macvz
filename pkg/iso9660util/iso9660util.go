@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"github.com/diskfs/go-diskfs/filesystem"
 	"github.com/diskfs/go-diskfs/filesystem/iso9660"
-	"github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path"
@@ -113,7 +112,6 @@ func Extract(tarPath string, fileInTar string, outputPath string) error {
 			continue
 		}
 
-		logrus.Println("Header", header)
 		// the target location where the dir/file should be created
 		if header.Typeflag == tar.TypeReg && header.Name == fileInTar {
 			f, err := os.OpenFile(outputPath, os.O_CREATE|os.O_RDWR, os.FileMode(header.Mode))

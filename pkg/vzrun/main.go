@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docker/go-units"
-	"github.com/mac-vz/macvz/pkg/cidata"
 	"github.com/mac-vz/macvz/pkg/downloader"
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/socket"
@@ -110,9 +109,6 @@ func Initialize(instName string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := cidata.GenerateISO9660(inst.Dir, instName, y); err != nil {
-		return nil, err
-	}
 	a := &Config{
 		MacVZYaml:   y,
 		InstanceDir: inst.Dir,
@@ -157,8 +153,15 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 	writeFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStderrLog))
 	serialPortAttachment := vz.NewFileHandleSerialPortAttachment(readFile, writeFile)
 	consoleConfig := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
+
+	readFile1, _ := os.Create(filepath.Join(cfg.InstanceDir, "read.sock"))
+	writeFile1, _ := os.Create(filepath.Join(cfg.InstanceDir, "write.sock"))
+	serialPortAttachment1 := vz.NewFileHandleSerialPortAttachment(readFile1, writeFile1)
+	console1Config := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment1)
+
 	config.SetSerialPortsVirtualMachineConfiguration([]*vz.VirtioConsoleDeviceSerialPortConfiguration{
 		consoleConfig,
+		console1Config,
 	})
 
 	// network
@@ -251,7 +254,6 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 
 				//VM Write and Host reads
 				listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
-					logrus.Println("Connected")
 					background, cancel := context.WithCancel(context.Background())
 					defer cancel()
 					if err != nil {

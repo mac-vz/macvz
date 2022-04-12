@@ -16,10 +16,9 @@ import (
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/osutil"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
-	"github.com/mitchellh/go-homedir"
 )
 
-func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
+func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml, udpDNSLocalPort int, tcpDNSLocalPort int) error {
 	if err := yaml.Validate(*y, false); err != nil {
 		return err
 	}
@@ -32,9 +31,11 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 		return err
 	}
 	args := TemplateArgs{
-		Name: name,
-		User: u.Username,
-		UID:  uid,
+		Name:         name,
+		User:         u.Username,
+		UID:          uid,
+		SlirpGateway: "192.168.205.1",
+		SlirpDNS:     "192.168.205.1",
 	}
 
 	// change instance id on every boot so network config will be processed again
@@ -51,12 +52,10 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 		args.SSHPubKeys = append(args.SSHPubKeys, f.Content)
 	}
 
-	for _, f := range y.Mounts {
-		expanded, err := homedir.Expand(f.Location)
-		if err != nil {
-			return err
-		}
-		args.Mounts = append(args.Mounts, expanded)
+	args.Hosts = y.HostResolver.Hosts
+	if *y.HostResolver.Enabled {
+		args.UDPDNSLocalPort = udpDNSLocalPort
+		args.TCPDNSLocalPort = tcpDNSLocalPort
 	}
 
 	if err := ValidateTemplateArgs(args); err != nil {

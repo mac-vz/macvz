@@ -11,11 +11,13 @@ require (
 	github.com/docker/go-units v0.4.0
 	github.com/elastic/go-libaudit/v2 v2.2.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/joho/godotenv v1.4.0
 	github.com/lima-vm/sshocker v0.2.2
 	github.com/mac-vz/vz v0.0.5-0.20220331053356-10268d2f0d0c
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mdlayher/vsock v1.1.1
 	github.com/miekg/dns v1.1.47
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/norouter/norouter v0.6.4
 	github.com/nxadm/tail v1.4.8
 	github.com/opencontainers/go-digest v1.0.0
@@ -23,7 +25,6 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/xorcare/pointer v1.1.0
 	github.com/yalue/native_endian v1.0.2
-	github.com/mitchellh/go-homedir v1.1.0
 	golang.org/x/sys v0.0.0-20220204135822-1c1b9b1eba6a
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.1.0

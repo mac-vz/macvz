@@ -24,7 +24,7 @@ write_files:
       export MACVZ_CIDATA_MNT
       exec "${MACVZ_CIDATA_MNT}"/boot.sh
    owner: root:root
-   path: /var/lib/cloud/scripts/per-boot/00-lima.boot.sh
+   path: /var/lib/cloud/scripts/per-boot/00-macvz.boot.sh
    permissions: '0755'
 network:
     version: 2
