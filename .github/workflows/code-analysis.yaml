@@ -47,6 +47,4 @@ jobs:
           # Adjust severity of non-security issues
           gh-code-scanning-compat: false
           max-allowed-issues: 2147483647
-          run-gosec: true
-          run-staticcheck: true
           upload: true
