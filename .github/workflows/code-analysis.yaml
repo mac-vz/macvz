@@ -50,8 +50,10 @@ jobs:
           project-token: ${{ secrets.CODACY_PROJECT_TOKEN }}
 
           # Adjust severity of non-security issues
-          gh-code-scanning-compat: true
+          gh-code-scanning-compat: false
           max-allowed-issues: 2147483647
+          run-gosec: true
+          run-staticcheck: true
 
       # Upload the SARIF file generated in the previous step
       - name: Upload SARIF results file
