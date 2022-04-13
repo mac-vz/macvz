@@ -1,3 +1,4 @@
+[![Build and Test](https://github.com/mac-vz/macvz/actions/workflows/build.yml/badge.svg)](https://github.com/mac-vz/macvz/actions/workflows/build.yml)
 [![Go Report Card](https://goreportcard.com/badge/mac-vz/macvz)](https://goreportcard.com/report/github.com/mac-vz/macvz) 
 [![GitHub](https://img.shields.io/github/license/mac-vz/macvz?color=brightgreen)](https://github.com/mac-vz/macvz/blob/main/LICENSE)
 
