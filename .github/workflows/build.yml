@@ -7,7 +7,6 @@ on:
     branches: [ main ]
 
 jobs:
-
   build:
     runs-on: macos-12
     steps:
@@ -21,5 +20,10 @@ jobs:
     - name: Build
       run: make all
 
-    - name: Test
-      run: go test -v ./...
+    - name: Unit Tests
+      run: go test -v ./... -race -covermode=atomic -coverprofile=coverage.out
+
+    - name: Publish coverage
+      run: |
+        bash <(curl -Ls https://coverage.codacy.com/get.sh) report -t ${{ secrets.CODACY_PROJECT_TOKEN }} --force-coverage-parser go -r coverage.out
+
