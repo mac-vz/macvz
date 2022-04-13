@@ -15,11 +15,6 @@ jobs:
       contents: read
       security-events: write
 
-    strategy:
-      fail-fast: false
-      matrix:
-        language: [ 'go' ]
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
@@ -27,7 +22,7 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v1
         with:
-          languages: ${{ matrix.language }}
+          languages: go
 
       - name: Autobuild
         uses: github/codeql-action/autobuild@v1
@@ -54,9 +49,4 @@ jobs:
           max-allowed-issues: 2147483647
           run-gosec: true
           run-staticcheck: true
-
-      # Upload the SARIF file generated in the previous step
-      - name: Upload SARIF results file
-        uses: github/codeql-action/upload-sarif@v1
-        with:
-          sarif_file: results.sarif
+          upload: true
