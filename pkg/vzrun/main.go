@@ -7,13 +7,13 @@ import (
 	"github.com/docker/go-units"
 	"github.com/mac-vz/macvz/pkg/cidata"
 	"github.com/mac-vz/macvz/pkg/downloader"
+	proxy "github.com/mac-vz/macvz/pkg/gvisor"
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/mac-vz/vz"
-	proxy "github.com/balaji113/macvz/pkg/gvisor"
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
@@ -176,7 +176,7 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 
 	natAttachment := vz.NewFileHandleNetworkDeviceAttachment(fd)
 	networkConfig := vz.NewVirtioNetworkDeviceConfiguration(natAttachment)
-	networkConfig.SetMacAddress(vz.NewMACAddress(macAddr))
+	networkConfig.SetMACAddress(vz.NewMACAddress(macAddr))
 
 	go func() {
 		err3 := os.Remove(gVisorSock)
@@ -195,7 +195,7 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 	})
 
 	first, err := net.ParseMAC(*y.MACAddress)
-	networkConfig.SetMacAddress(vz.NewMACAddress(first))
+	networkConfig.SetMACAddress(vz.NewMACAddress(first))
 
 	// entropy
 	entropyConfig := vz.NewVirtioEntropyDeviceConfiguration()

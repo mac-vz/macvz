@@ -4,8 +4,8 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	"github.com/balaji113/macvz/pkg/socket"
 	"github.com/dustin/go-humanize"
+	"github.com/mac-vz/macvz/pkg/socket"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -109,6 +109,9 @@ func StartProxy(gVisorSock string, listenDebug bool, vzGVisorSock string, macAdd
 		GatewayMacAddress: "5a:94:ef:e4:0c:dd",
 		DHCPStaticLeases: map[string]string{
 			"192.168.127.2": macAddr,
+		},
+		Forwards: map[string]string{
+			fmt.Sprintf("127.0.0.1:%d", 2223): sshHostPort,
 		},
 		DNS: []types.Zone{
 			{
