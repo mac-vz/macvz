@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docker/go-units"
+	"github.com/hashicorp/yamux"
+	"github.com/lab47/isle/types"
 	"github.com/mac-vz/macvz/pkg/downloader"
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/socket"
@@ -13,6 +15,7 @@ import (
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/mac-vz/vz"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -252,6 +255,11 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 					defer os.RemoveAll(pidFile)
 				}
 
+				socketListener, err := startListener(context.Background())
+				if err != nil {
+					logrus.Fatal("Failed to create listener", err)
+				}
+
 				//VM Write and Host reads
 				listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
 					background, cancel := context.WithCancel(context.Background())
@@ -263,6 +271,7 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 				})
 				for _, socketDevice := range vm.SocketDevices() {
 					socketDevice.SetSocketListenerForPort(listener, 2222)
+					socketDevice.SetSocketListenerForPort(socketListener, 47)
 				}
 				logrus.Println("start VM is running")
 			}
@@ -272,6 +281,158 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 			}
 		case err := <-errCh:
 			logrus.Println("in start:", err)
+			return errors.New("error during start of VM")
 		}
+	}
+}
+
+func startListener(ctx context.Context) (*vz.VirtioSocketListener, error) {
+
+	type newConn struct {
+		conn *vz.VirtioSocketConnection
+		wait chan struct{}
+	}
+
+	connCh := make(chan newConn)
+
+	go func() {
+		var (
+			conn      *vz.VirtioSocketConnection
+			wait      chan struct{}
+			sess      *yamux.Session
+			curHostCh chan net.Conn
+		)
+
+		for {
+			select {
+			case ci := <-connCh:
+				if wait != nil {
+					wait <- struct{}{}
+				}
+
+				conn = ci.conn
+				wait = ci.wait
+
+				if sess != nil {
+					sess.Close()
+				}
+
+				cfg := yamux.DefaultConfig()
+				cfg.EnableKeepAlive = true
+				cfg.AcceptBacklog = 10
+
+				sess, _ = yamux.Client(conn, cfg)
+
+				go handleFromGuest(ctx, sess)
+			}
+		}
+	}()
+
+	listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
+		if err != nil {
+			return
+		}
+
+		defer conn.Close()
+
+		logrus.Info("connection from virtio socket detected")
+
+		wait := make(chan struct{})
+
+		connCh <- newConn{conn, wait}
+
+		<-wait
+	})
+
+	return listener, nil
+}
+
+func handleFromGuest(ctx context.Context, sess *yamux.Session) {
+	for {
+		c, err := sess.AcceptStream()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				logrus.Warn("unable to accept new incoming yamux streams", "error", err)
+			}
+			return
+		}
+
+		go handleGuestConn(c)
+	}
+}
+
+func handleGuestConn(c *yamux.Stream) {
+	defer c.Close()
+
+	enc := cbor.NewEncoder(c)
+	dec := cbor.NewDecoder(c)
+
+	var msg types.HeaderMessage
+
+	err := dec.Decode(&msg)
+	if err != nil {
+		logrus.Error("error decoding guest message", "error", err)
+		return
+	}
+
+	logrus.Debug("received event from guest", "kind", msg.Kind)
+
+	switch msg.Kind {
+	default:
+		var resp types.ResponseMessage
+
+		resp.Code = types.Error
+		resp.Error = fmt.Sprintf("unknown event kind")
+
+		err = enc.Encode(resp)
+		if err != nil {
+			logrus.Error("error encoding response", "error", err)
+		}
+	case "ssh-agent":
+		path := os.Getenv("SSH_AUTH_SOCK")
+		if path == "" {
+			enc.Encode(types.ResponseMessage{
+				Code:  types.Error,
+				Error: "no local agent",
+			})
+
+			v.L.Error("no SSH_AUTH_SOCK set, rejecting connection")
+			c.Close()
+			return
+		}
+
+		local, err := net.Dial("unix", path)
+		if err != nil {
+			enc.Encode(types.ResponseMessage{
+				Code:  types.Error,
+				Error: "local agent rejected connection",
+			})
+
+			v.L.Error("error connecting to ssh agent", "error", err)
+			c.Close()
+			return
+		}
+
+		v.L.Info("forwarding connection to ssh-agent", "path", path)
+
+		enc.Encode(types.ResponseMessage{
+			Code: types.OK,
+		})
+
+		go func() {
+			defer local.Close()
+			defer c.Close()
+
+			io.Copy(c, local)
+
+			v.L.Info("ssh-agent session ended 1")
+		}()
+
+		defer c.Close()
+		defer local.Close()
+
+		io.Copy(local, c)
+
+		v.L.Info("ssh-agent session ended 2")
 	}
 }
