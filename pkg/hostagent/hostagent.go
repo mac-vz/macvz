@@ -10,6 +10,7 @@ import (
 	"github.com/mac-vz/macvz/pkg/hostagent/dns"
 	"github.com/mac-vz/macvz/pkg/hostagent/events"
 	"github.com/mac-vz/macvz/pkg/socket"
+	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/vzrun"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"io"
@@ -200,8 +201,13 @@ func (a *HostAgent) Run(ctx context.Context) error {
 	if err != nil {
 		logrus.Fatal("INIT", err)
 	}
-	err = vzrun.Run(*initialize, a.sigintCh, func(ctx context.Context, vsock socket.VsockConnection) {
-		a.WatchGuestAgentEvents(ctx, vsock)
+	err = vzrun.Run(*initialize, a.sigintCh, func(ctx context.Context, portEvent types.PortEvent) {
+		logrus.Debugf("guest agent event: %+v", portEvent)
+		for _, f := range portEvent.Errors {
+			logrus.Warnf("received error from the guest: %q", f)
+		}
+		sshRemoteUser := sshutil.SSHRemoteUser(*a.y.MACAddress)
+		a.portForwarder.OnEvent(ctx, sshRemoteUser, portEvent)
 	})
 	if err != nil {
 		logrus.Fatal("RUN", err)
@@ -248,7 +254,7 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 	logrus.Debugf("Forwarding unix sockets")
 	for _, rule := range a.y.PortForwards {
 		if rule.GuestSocket != "" {
-			local := hostAddress(rule, guestagentapi.IPPort{})
+			local := hostAddress(rule, types.IPPort{})
 			_ = forwardSSH(ctx, a.sshConfig, a.sshRemote, local, rule.GuestSocket, verbForward)
 		}
 	}
@@ -258,7 +264,7 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 		var mErr error
 		for _, rule := range a.y.PortForwards {
 			if rule.GuestSocket != "" {
-				local := hostAddress(rule, guestagentapi.IPPort{})
+				local := hostAddress(rule, types.IPPort{})
 				// using ctx.Background() because ctx has already been cancelled
 				if err := forwardSSH(context.Background(), a.sshConfig, a.sshRemote, local, rule.GuestSocket, verbCancel); err != nil {
 					mErr = multierror.Append(mErr, err)
@@ -294,7 +300,7 @@ func (a *HostAgent) processGuestAgentEvents(ctx context.Context, conn socket.Vso
 	var first = true
 	conn.ReadEvents(func(data string) {
 		if first {
-			var negotiate guestagentapi.Info
+			var negotiate types.InfoEvent
 			err := json.Unmarshal([]byte(data), &negotiate)
 			if err != nil {
 				logrus.Error("Error during parse of negotiate")
@@ -303,7 +309,7 @@ func (a *HostAgent) processGuestAgentEvents(ctx context.Context, conn socket.Vso
 			first = false
 			logrus.Debugf("guest agent info: %+v", negotiate)
 		} else {
-			var event guestagentapi.Event
+			var event types.PortEvent
 			err := json.Unmarshal([]byte(data), &event)
 			if err != nil {
 				logrus.Error("Error during parse of event")

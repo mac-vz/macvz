@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"github.com/hashicorp/yamux"
 	"github.com/mac-vz/macvz/pkg/guestagent"
 	"github.com/mdlayher/vsock"
 	"os"
@@ -34,7 +35,7 @@ func daemonAction(cmd *cobra.Command, args []string) error {
 	}
 	logrus.Infof("event tick: %v", tick)
 
-	listen, err := vsock.Dial(vsock.Host, 2222, &vsock.Config{})
+	yamuxListener, err := vsock.Dial(vsock.Host, 47, &vsock.Config{})
 
 	newTicker := func() (<-chan time.Time, func()) {
 		// TODO: use an equivalent of `bpftrace -e 'tracepoint:syscalls:sys_*_bind { printf("tick\n"); }')`,
@@ -44,7 +45,11 @@ func daemonAction(cmd *cobra.Command, args []string) error {
 		return ticker.C, ticker.Stop
 	}
 
-	agent, err := guestagent.New(newTicker, listen, tick*20)
+	cfg := yamux.DefaultConfig()
+
+	sess, err := yamux.Server(yamuxListener, cfg)
+
+	agent, err := guestagent.New(newTicker, sess, tick*20)
 	if err != nil {
 		return err
 	}

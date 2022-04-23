@@ -5,15 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docker/go-units"
+	"github.com/fxamacker/cbor/v2"
 	"github.com/hashicorp/yamux"
-	"github.com/lab47/isle/types"
 	"github.com/mac-vz/macvz/pkg/downloader"
 	"github.com/mac-vz/macvz/pkg/iso9660util"
-	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/mac-vz/vz"
+	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -120,7 +121,7 @@ func Initialize(instName string) (*Config, error) {
 	return a, nil
 }
 
-func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Context, vsock socket.VsockConnection)) error {
+func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) error {
 	y := cfg.MacVZYaml
 
 	kernelCommandLineArguments := []string{
@@ -255,23 +256,14 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 					defer os.RemoveAll(pidFile)
 				}
 
-				socketListener, err := startListener(context.Background())
+				background, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				yamuxListener, err := createVSockListener(background, handlePortEvent)
 				if err != nil {
 					logrus.Fatal("Failed to create listener", err)
 				}
-
-				//VM Write and Host reads
-				listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
-					background, cancel := context.WithCancel(context.Background())
-					defer cancel()
-					if err != nil {
-						logrus.Error("Error while starting host agent")
-					}
-					startEvents(background, socket.VsockConnection{Conn: conn})
-				})
 				for _, socketDevice := range vm.SocketDevices() {
-					socketDevice.SetSocketListenerForPort(listener, 2222)
-					socketDevice.SetSocketListenerForPort(socketListener, 47)
+					socketDevice.SetSocketListenerForPort(yamuxListener, 47)
 				}
 				logrus.Println("start VM is running")
 			}
@@ -286,32 +278,20 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 	}
 }
 
-func startListener(ctx context.Context) (*vz.VirtioSocketListener, error) {
+func createVSockListener(ctx context.Context, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) (*vz.VirtioSocketListener, error) {
 
-	type newConn struct {
-		conn *vz.VirtioSocketConnection
-		wait chan struct{}
-	}
-
-	connCh := make(chan newConn)
+	connCh := make(chan *vz.VirtioSocketConnection)
 
 	go func() {
 		var (
-			conn      *vz.VirtioSocketConnection
-			wait      chan struct{}
-			sess      *yamux.Session
-			curHostCh chan net.Conn
+			conn *vz.VirtioSocketConnection
+			sess *yamux.Session
 		)
 
 		for {
 			select {
 			case ci := <-connCh:
-				if wait != nil {
-					wait <- struct{}{}
-				}
-
-				conn = ci.conn
-				wait = ci.wait
+				conn = ci
 
 				if sess != nil {
 					sess.Close()
@@ -323,7 +303,7 @@ func startListener(ctx context.Context) (*vz.VirtioSocketListener, error) {
 
 				sess, _ = yamux.Client(conn, cfg)
 
-				go handleFromGuest(ctx, sess)
+				go handleFromGuest(ctx, sess, handlePortEvent)
 			}
 		}
 	}()
@@ -332,24 +312,16 @@ func startListener(ctx context.Context) (*vz.VirtioSocketListener, error) {
 		if err != nil {
 			return
 		}
-
-		defer conn.Close()
-
-		logrus.Info("connection from virtio socket detected")
-
-		wait := make(chan struct{})
-
-		connCh <- newConn{conn, wait}
-
-		<-wait
+		connCh <- conn
 	})
 
 	return listener, nil
 }
 
-func handleFromGuest(ctx context.Context, sess *yamux.Session) {
+func handleFromGuest(ctx context.Context, sess *yamux.Session, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) {
 	for {
 		c, err := sess.AcceptStream()
+		logrus.Info("Found new connection")
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				logrus.Warn("unable to accept new incoming yamux streams", "error", err)
@@ -357,82 +329,46 @@ func handleFromGuest(ctx context.Context, sess *yamux.Session) {
 			return
 		}
 
-		go handleGuestConn(c)
+		go handleGuestConn(ctx, c, handlePortEvent)
 	}
 }
 
-func handleGuestConn(c *yamux.Stream) {
+func handleGuestConn(ctx context.Context, c *yamux.Stream, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) {
 	defer c.Close()
 
-	enc := cbor.NewEncoder(c)
 	dec := cbor.NewDecoder(c)
 
-	var msg types.HeaderMessage
+	var genericMap map[string]interface{}
 
-	err := dec.Decode(&msg)
+	err := dec.Decode(&genericMap)
+	logrus.Info("Decoded Map", genericMap)
 	if err != nil {
-		logrus.Error("error decoding guest message", "error", err)
-		return
+		logrus.Error("error decoding response", err)
 	}
 
-	logrus.Debug("received event from guest", "kind", msg.Kind)
+	switch genericMap["kind"] {
+	case types.InfoMessage:
+		info := types.InfoEvent{}
+		decode(genericMap, &info)
+		logrus.Info("Event received", info)
+	case types.PortMessage:
+		event := types.PortEvent{}
+		decode(genericMap, &event)
+		logrus.Info("Event received", event)
+		handlePortEvent(context.Background(), event)
+	}
+}
 
-	switch msg.Kind {
-	default:
-		var resp types.ResponseMessage
+func encode(enc *cbor.Encoder, message interface{}) {
+	err := enc.Encode(message)
+	if err != nil {
+		logrus.Error("error encoding response", err)
+	}
+}
 
-		resp.Code = types.Error
-		resp.Error = fmt.Sprintf("unknown event kind")
-
-		err = enc.Encode(resp)
-		if err != nil {
-			logrus.Error("error encoding response", "error", err)
-		}
-	case "ssh-agent":
-		path := os.Getenv("SSH_AUTH_SOCK")
-		if path == "" {
-			enc.Encode(types.ResponseMessage{
-				Code:  types.Error,
-				Error: "no local agent",
-			})
-
-			v.L.Error("no SSH_AUTH_SOCK set, rejecting connection")
-			c.Close()
-			return
-		}
-
-		local, err := net.Dial("unix", path)
-		if err != nil {
-			enc.Encode(types.ResponseMessage{
-				Code:  types.Error,
-				Error: "local agent rejected connection",
-			})
-
-			v.L.Error("error connecting to ssh agent", "error", err)
-			c.Close()
-			return
-		}
-
-		v.L.Info("forwarding connection to ssh-agent", "path", path)
-
-		enc.Encode(types.ResponseMessage{
-			Code: types.OK,
-		})
-
-		go func() {
-			defer local.Close()
-			defer c.Close()
-
-			io.Copy(c, local)
-
-			v.L.Info("ssh-agent session ended 1")
-		}()
-
-		defer c.Close()
-		defer local.Close()
-
-		io.Copy(local, c)
-
-		v.L.Info("ssh-agent session ended 2")
+func decode(src map[string]interface{}, dest interface{}) {
+	err := mapstructure.Decode(src, dest)
+	if err != nil {
+		logrus.Error("error mapping decoded values", err)
 	}
 }
