@@ -17,13 +17,14 @@ type handler struct {
 	gatewayIP string
 }
 
-type server struct {
+//Server Custom DNSServer instance holds udp and tcp servers
+type Server struct {
 	udp *dns.Server
 	tcp *dns.Server
 }
 
 //Shutdown stops DNS servers
-func (s *server) Shutdown() {
+func (s *Server) Shutdown() {
 	if s.udp != nil {
 		_ = s.udp.Shutdown()
 	}
@@ -68,12 +69,12 @@ func (h *handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 }
 
 //Start initialise DNS server
-func Start(udpLocalPort, tcpLocalPort int, yamux *yamux.Session) (*server, error) {
+func Start(udpLocalPort, tcpLocalPort int, yamux *yamux.Session) (*Server, error) {
 	h, err := newHandler(yamux)
 	if err != nil {
 		return nil, err
 	}
-	server := &server{}
+	server := &Server{}
 	if udpLocalPort > 0 {
 		addr := fmt.Sprintf("0.0.0.0:%d", udpLocalPort)
 		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}

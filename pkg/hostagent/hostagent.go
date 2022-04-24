@@ -135,8 +135,8 @@ func (a *HostAgent) Run(ctx context.Context) error {
 	}()
 
 	handlers := make(map[types.Kind]func(ctx2 context.Context, stream *yamux.Stream, event interface{}))
-	handlers[types.PortMessage] = a.PortHandler
-	handlers[types.DNSMessage] = a.DNSHandler
+	handlers[types.PortMessage] = a.portEventHandler
+	handlers[types.DNSMessage] = a.dnsEventHandler
 
 	//Init vm
 	vm, err := vzrun.InitializeVM(a.instName, handlers, a.sigintCh)
@@ -151,7 +151,7 @@ func (a *HostAgent) Run(ctx context.Context) error {
 	return nil
 }
 
-func (a *HostAgent) PortHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
+func (a *HostAgent) portEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
 	portEvent := event.(types.PortEvent)
 	logrus.Debugf("guest agent event: %+v", portEvent)
 	for _, f := range portEvent.Errors {
@@ -161,7 +161,7 @@ func (a *HostAgent) PortHandler(ctx context.Context, stream *yamux.Stream, event
 	a.portForwarder.OnEvent(ctx, sshRemoteUser, portEvent)
 }
 
-func (a *HostAgent) DNSHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
+func (a *HostAgent) dnsEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
 	dnsEvent := event.(types.DNSEvent)
 	if a.dnsHandler != nil {
 		hosts := a.y.HostResolver.Hosts

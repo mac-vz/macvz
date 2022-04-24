@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 )
 
+//EnsureDisk Creates. and verifies if the VM Disk are present
 func EnsureDisk(ctx context.Context, cfg VM) error {
 	kernel := filepath.Join(cfg.InstanceDir, filenames.Kernel)
 	initrd := filepath.Join(cfg.InstanceDir, filenames.Initrd)

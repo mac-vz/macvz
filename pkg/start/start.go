@@ -18,12 +18,12 @@ import (
 )
 
 func ensureDisk(ctx context.Context, instName, instDir string, y *yaml.MacVZYaml) error {
-	qCfg := vzrun.VM{
+	vmCfg := vzrun.VM{
 		Name:        instName,
 		InstanceDir: instDir,
 		MacVZYaml:   y,
 	}
-	if err := vzrun.EnsureDisk(ctx, qCfg); err != nil {
+	if err := vzrun.EnsureDisk(ctx, vmCfg); err != nil {
 		return err
 	}
 
