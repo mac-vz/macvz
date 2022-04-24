@@ -21,6 +21,7 @@ import (
 	"strings"
 )
 
+//VM VirtualMachine instance
 type VM struct {
 	Name        string
 	InstanceDir string
@@ -29,6 +30,7 @@ type VM struct {
 	sigintCh    chan os.Signal
 }
 
+//InitializeVM Create a virtual machine instance
 func InitializeVM(
 	instName string,
 	handlers map[types.Kind]func(ctx context.Context, stream *yamux.Stream, event interface{}),
@@ -54,6 +56,7 @@ func InitializeVM(
 	return a, nil
 }
 
+//Run Starts the VM instance
 func (vm VM) Run() error {
 	y := vm.MacVZYaml
 
