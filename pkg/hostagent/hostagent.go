@@ -301,7 +301,6 @@ func forwardSSH(ctx context.Context, sshConfig *ssh.SSHConfig, userAndIp string,
 			panic(fmt.Errorf("invalid verb %q", verb))
 		}
 	}
-	logrus.Println("Forwarding=====", args)
 	cmd := exec.CommandContext(ctx, sshConfig.Binary(), args...)
 	if out, err := cmd.Output(); err != nil {
 		if verb == verbForward && strings.HasPrefix(local, "/") {
