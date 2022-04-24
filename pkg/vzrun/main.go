@@ -12,6 +12,7 @@ import (
 	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/mac-vz/vz"
+	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -148,7 +149,8 @@ func (vm VM) Run() error {
 
 	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(vm.MacVZYaml.Mounts))
 	for i, mount := range y.Mounts {
-		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(mount.Location, mount.Location, !*mount.Writable)
+		expand, _ := homedir.Expand(mount.Location)
+		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(expand, expand, !*mount.Writable)
 	}
 	config.SetDirectorySharingDevices(mounts)
 
@@ -279,7 +281,7 @@ func (vm VM) handleGuestConn(ctx context.Context, c *yamux.Stream) {
 	case types.InfoMessage:
 		info := types.InfoEvent{}
 		socket.ReadMap(genericMap, &info)
-		logrus.Debug("===Guest Info===", info)
+		vm.Handlers[types.InfoMessage](ctx, c, info)
 	case types.PortMessage:
 		event := types.PortEvent{}
 		socket.ReadMap(genericMap, &event)

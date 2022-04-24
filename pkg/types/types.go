@@ -27,6 +27,7 @@ type Event struct {
 //InfoEvent used by guest to send negotitation request
 type InfoEvent struct {
 	Event
+	GatewayIP  string   `json:"gatewayIP"`
 	LocalPorts []IPPort `json:"localPorts"`
 }
 
@@ -42,8 +43,7 @@ type PortEvent struct {
 //DNSEvent used by guest to send DNS request
 type DNSEvent struct {
 	Event
-	GatewayIP string `json:"gatewayIP"`
-	Msg       []byte `json:"msg"`
+	Msg []byte `json:"msg"`
 }
 
 //DNSEventResponse used by host to send DNS response

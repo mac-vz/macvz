@@ -8,7 +8,7 @@ images:
   base: "https://cloud-images.ubuntu.com/releases/focal/release/ubuntu-20.04-server-cloudimg-arm64.tar.gz"
   arch: "aarch64"
 mounts:
-- location: "/Users/balaji"
+- location: "~"
   writable: true
 disk: 20GB
 portForwards:

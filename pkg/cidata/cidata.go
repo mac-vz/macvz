@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/mac-vz/macvz/pkg/sshutil"
 	"github.com/mac-vz/macvz/pkg/yaml"
+	"github.com/mitchellh/go-homedir"
 	"io"
 	"io/fs"
 	"os"
@@ -67,8 +68,9 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 
 	var sb strings.Builder
 	for _, mount := range y.Mounts {
-		sb.WriteString(fmt.Sprintf("sudo mkdir -p %s\n", mount.Location))
-		sb.WriteString(fmt.Sprintf("sudo mount -t virtiofs %s %s", mount.Location, mount.Location))
+		expand, _ := homedir.Expand(mount.Location)
+		sb.WriteString(fmt.Sprintf("sudo mkdir -p %s\n", expand))
+		sb.WriteString(fmt.Sprintf("sudo mount -t virtiofs %s %s", expand, expand))
 	}
 	layout = append(layout, iso9660util.Entry{
 		Path:   fmt.Sprintf("provision.%s/%08d", yaml.ProvisionModeSystem, 0),

@@ -135,6 +135,7 @@ func (a *HostAgent) Run(ctx context.Context) error {
 	}()
 
 	handlers := make(map[types.Kind]func(ctx2 context.Context, stream *yamux.Stream, event interface{}))
+	handlers[types.InfoMessage] = a.infoEventHandler
 	handlers[types.PortMessage] = a.portEventHandler
 	handlers[types.DNSMessage] = a.dnsEventHandler
 
@@ -151,6 +152,14 @@ func (a *HostAgent) Run(ctx context.Context) error {
 	return nil
 }
 
+func (a *HostAgent) infoEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
+	infoEvent := event.(types.InfoEvent)
+	hosts := a.y.HostResolver.Hosts
+	hosts["host.macvz.internal."] = infoEvent.GatewayIP
+	hosts[fmt.Sprintf("macvz-%s.", a.instName)] = infoEvent.GatewayIP
+	a.dnsHandler.UpdateDefaults(hosts)
+}
+
 func (a *HostAgent) portEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
 	portEvent := event.(types.PortEvent)
 	logrus.Debugf("guest agent event: %+v", portEvent)
@@ -164,11 +173,6 @@ func (a *HostAgent) portEventHandler(ctx context.Context, stream *yamux.Stream, 
 func (a *HostAgent) dnsEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
 	dnsEvent := event.(types.DNSEvent)
 	if a.dnsHandler != nil {
-		hosts := a.y.HostResolver.Hosts
-		hosts["host.macvz.internal."] = dnsEvent.GatewayIP
-		hosts[fmt.Sprintf("macvz-%s.", a.instName)] = dnsEvent.GatewayIP
-		a.dnsHandler.UpdateDefaults(hosts)
-
 		res := a.dnsHandler.HandleDNSRequest(dnsEvent.Msg)
 		pack, _ := res.Pack()
 		encoder, _ := socket.GetStreamIO(stream)

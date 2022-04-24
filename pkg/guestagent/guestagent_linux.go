@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/hashicorp/yamux"
+	"github.com/joho/godotenv"
 	"github.com/mac-vz/macvz/pkg/guestagent/guestdns"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/types"
@@ -253,7 +254,12 @@ func (a *agent) PublishInfo() {
 		info types.InfoEvent
 		err  error
 	)
+	ips, err := godotenv.Read("/etc/macvz_hosts")
+	if err != nil {
+		logrus.Error("Unable to fetch predefined hosts")
+	}
 
+	info.GatewayIP = ips["GATEWAY_IPADDR"]
 	info.LocalPorts, err = a.localPorts()
 	if err != nil {
 		logrus.Error("Error getting local ports", err)
