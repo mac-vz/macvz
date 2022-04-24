@@ -32,7 +32,7 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 	return dns.ClientConfigFromReader(r)
 }
 
-func CreateHandler(IPv6 bool, hosts map[string]string) (*Handler, error) {
+func CreateHandler(IPv6 bool) (*Handler, error) {
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		fallbackIPs := []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("1.1.1.1")}
@@ -52,13 +52,6 @@ func CreateHandler(IPv6 bool, hosts map[string]string) (*Handler, error) {
 		IPv6:         IPv6,
 		cname:        make(map[string]string),
 		ip:           make(map[string]net.IP),
-	}
-	for host, address := range hosts {
-		if ip := net.ParseIP(address); ip != nil {
-			h.ip[host] = ip
-		} else {
-			h.cname[host] = yaml.Cname(address)
-		}
 	}
 	return h, nil
 }
@@ -242,11 +235,20 @@ func (h *Handler) HandleDNSRequest(req []byte) *dns.Msg {
 		original dns.Msg
 	)
 	_ = original.Unpack(req)
-	logrus.Println("DNS EVENT", original)
 	switch original.Opcode {
 	case dns.OpcodeQuery:
 		return h.handleQuery(&original)
 	default:
 		return h.handleDefault(&original)
+	}
+}
+
+func (h *Handler) UpdateDefaults(hosts map[string]string) {
+	for host, address := range hosts {
+		if ip := net.ParseIP(address); ip != nil {
+			h.ip[host] = ip
+		} else {
+			h.cname[host] = yaml.Cname(address)
+		}
 	}
 }

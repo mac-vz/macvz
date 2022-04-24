@@ -253,7 +253,6 @@ func (vm VM) createVSockListener(ctx context.Context) (*vz.VirtioSocketListener,
 func (vm VM) handleFromGuest(ctx context.Context, sess *yamux.Session) {
 	for {
 		c, err := sess.AcceptStream()
-		logrus.Info("Found new connection")
 		if err != nil {
 			if !errors.Is(err, io.EOF) {
 				logrus.Warn("unable to accept new incoming yamux streams", "error", err)
@@ -277,7 +276,7 @@ func (vm VM) handleGuestConn(ctx context.Context, c *yamux.Stream) {
 	case types.InfoMessage:
 		info := types.InfoEvent{}
 		socket.ReadMap(genericMap, &info)
-		logrus.Info("===Guest Info===", info)
+		logrus.Debug("===Guest Info===", info)
 	case types.PortMessage:
 		event := types.PortEvent{}
 		socket.ReadMap(genericMap, &event)

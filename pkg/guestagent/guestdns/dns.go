@@ -5,13 +5,16 @@ package guestdns
 import (
 	"fmt"
 	"github.com/hashicorp/yamux"
+	"github.com/joho/godotenv"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/miekg/dns"
+	"github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	yamux *yamux.Session
+	yamux     *yamux.Session
+	gatewayIp string
 }
 
 type Server struct {
@@ -29,8 +32,13 @@ func (s *Server) Shutdown() {
 }
 
 func newHandler(yamux *yamux.Session) (dns.Handler, error) {
+	ips, err := godotenv.Read("/etc/macvz_hosts")
+	if err != nil {
+		logrus.Error("Unable to fetch predefined hosts")
+	}
 	h := &Handler{
-		yamux: yamux,
+		yamux:     yamux,
+		gatewayIp: ips["GATEWAY_IPADDR"],
 	}
 	return h, nil
 }
@@ -43,6 +51,7 @@ func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
 		event.Kind = types.DNSMessage
 		pack, _ := req.Pack()
 		event.Msg = pack
+		event.GatewayIP = h.gatewayIp
 		socket.Write(encoder, &event)
 
 		//Read DNS response from host

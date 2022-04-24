@@ -33,7 +33,8 @@ type PortEvent struct {
 
 type DNSEvent struct {
 	Event
-	Msg []byte `json:"msg"`
+	GatewayIP string `json:"gatewayIP"`
+	Msg       []byte `json:"msg"`
 }
 
 type DNSEventResponse struct {

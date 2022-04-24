@@ -28,6 +28,7 @@ type TemplateArgs struct {
 	SSHPubKeys      []string
 	UDPDNSLocalPort int
 	TCPDNSLocalPort int
+	Env             map[string]string
 }
 
 func ValidateTemplateArgs(args TemplateArgs) error {

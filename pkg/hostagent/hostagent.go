@@ -90,10 +90,7 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 
 	var dnsHandler *dns.Handler
 	if *y.HostResolver.Enabled {
-		hosts := y.HostResolver.Hosts
-		hosts["host.macvz.internal."] = "192.168.106.1"
-		hosts[fmt.Sprintf("macvz-%s.", instName)] = "192.168.106.1"
-		dnsHandler, err = dns.CreateHandler(*y.HostResolver.IPv6, hosts)
+		dnsHandler, err = dns.CreateHandler(*y.HostResolver.IPv6)
 		if err != nil {
 			logrus.Error("cannot start DNS server: %w", err)
 		}
@@ -166,14 +163,21 @@ func (a *HostAgent) PortHandler(ctx context.Context, stream *yamux.Stream, event
 
 func (a *HostAgent) DNSHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
 	dnsEvent := event.(types.DNSEvent)
-	res := a.dnsHandler.HandleDNSRequest(dnsEvent.Msg)
-	pack, _ := res.Pack()
-	encoder, _ := socket.GetStreamIO(stream)
-	resEvent := types.DNSEventResponse{
-		Msg: pack,
+	if a.dnsHandler != nil {
+		hosts := a.y.HostResolver.Hosts
+		hosts["host.macvz.internal."] = dnsEvent.GatewayIP
+		hosts[fmt.Sprintf("macvz-%s.", a.instName)] = dnsEvent.GatewayIP
+		a.dnsHandler.UpdateDefaults(hosts)
+
+		res := a.dnsHandler.HandleDNSRequest(dnsEvent.Msg)
+		pack, _ := res.Pack()
+		encoder, _ := socket.GetStreamIO(stream)
+		resEvent := types.DNSEventResponse{
+			Msg: pack,
+		}
+		resEvent.Kind = types.DNSResponseMessage
+		_ = encoder.Encode(&resEvent)
 	}
-	resEvent.Kind = types.DNSResponseMessage
-	_ = encoder.Encode(&resEvent)
 }
 
 func (a *HostAgent) setSSHRemote(remote string) {
