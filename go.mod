@@ -10,7 +10,9 @@ require (
 	github.com/diskfs/go-diskfs v1.2.0
 	github.com/docker/go-units v0.4.0
 	github.com/elastic/go-libaudit/v2 v2.2.0
+	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87
 	github.com/joho/godotenv v1.4.0
 	github.com/lima-vm/sshocker v0.2.2
 	github.com/mac-vz/vz v0.0.5-0.20220331053356-10268d2f0d0c
@@ -42,11 +44,13 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/mdlayher/socket v0.2.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/rs/xid v1.3.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/x448/float16 v0.8.4 // indirect
 	golang.org/x/mod v0.5.0 // indirect
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect

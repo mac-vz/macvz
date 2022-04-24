@@ -2,19 +2,17 @@ package guestagent
 
 import (
 	"encoding/binary"
-	"encoding/json"
 	"errors"
-	"github.com/mac-vz/macvz/pkg/guestagent/dns"
+	"github.com/hashicorp/yamux"
+	"github.com/mac-vz/macvz/pkg/guestagent/guestdns"
 	"github.com/mac-vz/macvz/pkg/socket"
-	"net"
+	"github.com/mac-vz/macvz/pkg/types"
 	"reflect"
 	"sync"
 	"time"
 
 	"github.com/elastic/go-libaudit/v2"
 	"github.com/elastic/go-libaudit/v2/auparse"
-	"github.com/joho/godotenv"
-	"github.com/mac-vz/macvz/pkg/guestagent/api"
 	"github.com/mac-vz/macvz/pkg/guestagent/iptables"
 	"github.com/mac-vz/macvz/pkg/guestagent/procnettcp"
 	"github.com/mac-vz/macvz/pkg/guestagent/timesync"
@@ -22,10 +20,11 @@ import (
 	"github.com/yalue/native_endian"
 )
 
-func New(newTicker func() (<-chan time.Time, func()), vsock net.Conn, iptablesIdle time.Duration) (Agent, error) {
+//New creates guest agent that takes care of guest to host communication
+func New(newTicker func() (<-chan time.Time, func()), sess *yamux.Session, iptablesIdle time.Duration) (Agent, error) {
 	a := &agent{
 		newTicker: newTicker,
-		vsock:     socket.VsockConnection{Conn: vsock},
+		sess:      sess,
 	}
 
 	auditClient, err := libaudit.NewMulticastAuditClient(nil)
@@ -52,7 +51,7 @@ type agent struct {
 	// We can't use inotify for /proc/net/tcp, so we need this ticker to
 	// reload /proc/net/tcp.
 	newTicker func() (<-chan time.Time, func())
-	vsock     socket.VsockConnection
+	sess      *yamux.Session
 
 	worthCheckingIPTables   bool
 	worthCheckingIPTablesMu sync.RWMutex
@@ -98,11 +97,11 @@ func (a *agent) setWorthCheckingIPTablesRoutine(auditClient *libaudit.AuditClien
 }
 
 type eventState struct {
-	ports []api.IPPort
+	ports []types.IPPort
 }
 
-func comparePorts(old, neww []api.IPPort) (added, removed []api.IPPort) {
-	mRaw := make(map[string]api.IPPort, len(old))
+func comparePorts(old, neww []types.IPPort) (added, removed []types.IPPort) {
+	mRaw := make(map[string]types.IPPort, len(old))
 	mStillExist := make(map[string]bool, len(old))
 
 	for _, f := range old {
@@ -128,51 +127,51 @@ func comparePorts(old, neww []api.IPPort) (added, removed []api.IPPort) {
 	return
 }
 
-func (a *agent) collectEvent(st eventState) (api.Event, eventState) {
+func (a *agent) collectEvent(st eventState) (types.PortEvent, eventState) {
 	var (
-		ev  api.Event
+		ev  types.PortEvent
 		err error
 	)
 	newSt := st
 	newSt.ports, err = a.localPorts()
+	ev.Kind = types.PortMessage
 	if err != nil {
 		ev.Errors = append(ev.Errors, err.Error())
-		ev.Time = time.Now()
+		ev.Time = time.Now().Format(time.RFC3339)
 		return ev, newSt
 	}
 	ev.LocalPortsAdded, ev.LocalPortsRemoved = comparePorts(st.ports, newSt.ports)
-	ev.Time = time.Now()
+	ev.Time = time.Now().Format(time.RFC3339)
 	return ev, newSt
 }
 
-func isEventEmpty(ev api.Event) bool {
-	var empty api.Event
+func isEventEmpty(ev types.PortEvent) bool {
+	var empty types.PortEvent
+	empty.Kind = types.PortMessage
 	// ignore ev.Time
 	copied := ev
-	copied.Time = time.Time{}
+	copied.Time = empty.Time
 	return reflect.DeepEqual(empty, copied)
+}
+
+func (a *agent) StartDNS() {
+	dnsServer, _ := guestdns.Start(23, 24, a.sess)
+	defer dnsServer.Shutdown()
 }
 
 func (a *agent) ListenAndSendEvents() {
 	tickerCh, tickerClose := a.newTicker()
-	hosts, err := godotenv.Read("/etc/macvz_hosts")
-	if err != nil {
-		logrus.Warn("Unable to fetch predefined hosts")
-	}
-	dnsServer, _ := dns.Start(23, 24, true, hosts)
-	defer dnsServer.Shutdown()
 
 	defer tickerClose()
 	var st eventState
 	for {
-		var ev api.Event
+		var ev types.PortEvent
 		ev, st = a.collectEvent(st)
 		if !isEventEmpty(ev) {
-			marshal, err := json.Marshal(ev)
-			if err != nil {
-				logrus.Warn(err)
+			encoder, _ := socket.GetIO(a.sess)
+			if encoder != nil {
+				socket.Write(encoder, ev)
 			}
-			a.vsock.WriteEvents(string(marshal))
 		}
 		select {
 		case _, ok := <-tickerCh:
@@ -184,11 +183,11 @@ func (a *agent) ListenAndSendEvents() {
 	}
 }
 
-func (a *agent) localPorts() ([]api.IPPort, error) {
+func (a *agent) localPorts() ([]types.IPPort, error) {
 	if native_endian.NativeEndian() == binary.BigEndian {
 		return nil, errors.New("big endian architecture is unsupported, because I don't know how /proc/net/tcp looks like on big endian hosts")
 	}
-	var res []api.IPPort
+	var res []types.IPPort
 	tcpParsed, err := procnettcp.ParseFiles()
 	if err != nil {
 		return res, err
@@ -202,7 +201,7 @@ func (a *agent) localPorts() ([]api.IPPort, error) {
 		}
 		if f.State == procnettcp.TCPListen {
 			res = append(res,
-				api.IPPort{
+				types.IPPort{
 					IP:   f.IP,
 					Port: int(f.Port),
 				})
@@ -239,7 +238,7 @@ func (a *agent) localPorts() ([]api.IPPort, error) {
 		}
 		if !found {
 			res = append(res,
-				api.IPPort{
+				types.IPPort{
 					IP:   ipt.IP,
 					Port: ipt.Port,
 				})
@@ -251,18 +250,19 @@ func (a *agent) localPorts() ([]api.IPPort, error) {
 
 func (a *agent) PublishInfo() {
 	var (
-		info api.Info
+		info types.InfoEvent
 		err  error
 	)
+
 	info.LocalPorts, err = a.localPorts()
 	if err != nil {
-		logrus.Error(err)
+		logrus.Error("Error getting local ports", err)
 	}
-	marshal, err := json.Marshal(info)
-	if err != nil {
-		logrus.Warn(err)
+	encoder, _ := socket.GetIO(a.sess)
+	if encoder != nil {
+		info.Kind = types.InfoMessage
+		socket.Write(encoder, info)
 	}
-	a.vsock.WriteEvents(string(marshal))
 }
 
 const deltaLimit = 2 * time.Second
