@@ -3,27 +3,42 @@ package types
 import (
 	"net"
 	"strconv"
-	"time"
 )
 
-type Message = string
+type Kind = string
 
 const (
-	PortMessage Message = "port-event"
-	InfoMessage Message = "info-event"
+	PortMessage        Kind = "port-event"
+	InfoMessage        Kind = "info-event"
+	DNSMessage         Kind = "dns-event"
+	DNSResponseMessage Kind = "dns-event-response"
 )
 
+type Event struct {
+	Kind Kind `json:"kind"`
+}
+
 type InfoEvent struct {
-	Kind       Message  `json:"kind"`
+	Event
 	LocalPorts []IPPort `json:"localPorts"`
 }
 
 type PortEvent struct {
-	Kind              Message   `json:"kind"`
-	Time              time.Time `json:"time,omitempty"`
-	LocalPortsAdded   []IPPort  `json:"localPortsAdded,omitempty"`
-	LocalPortsRemoved []IPPort  `json:"localPortsRemoved,omitempty"`
-	Errors            []string  `json:"errors,omitempty"`
+	Event
+	Time              string   `json:"time,omitempty"`
+	LocalPortsAdded   []IPPort `json:"localPortsAdded,omitempty"`
+	LocalPortsRemoved []IPPort `json:"localPortsRemoved,omitempty"`
+	Errors            []string `json:"errors,omitempty"`
+}
+
+type DNSEvent struct {
+	Event
+	Msg []byte `json:"msg"`
+}
+
+type DNSEventResponse struct {
+	Event
+	Msg []byte `json:"msg"`
 }
 
 type IPPort struct {

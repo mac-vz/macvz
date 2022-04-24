@@ -23,20 +23,6 @@ type Handler struct {
 	ip           map[string]net.IP
 }
 
-type Server struct {
-	udp *dns.Server
-	tcp *dns.Server
-}
-
-func (s *Server) Shutdown() {
-	if s.udp != nil {
-		_ = s.udp.Shutdown()
-	}
-	if s.tcp != nil {
-		_ = s.tcp.Shutdown()
-	}
-}
-
 func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 	s := ``
 	for _, ip := range ips {
@@ -46,7 +32,7 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 	return dns.ClientConfigFromReader(r)
 }
 
-func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
+func CreateHandler(IPv6 bool, hosts map[string]string) (*Handler, error) {
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		fallbackIPs := []net.IP{net.ParseIP("8.8.8.8"), net.ParseIP("1.1.1.1")}
@@ -77,7 +63,7 @@ func newHandler(IPv6 bool, hosts map[string]string) (dns.Handler, error) {
 	return h, nil
 }
 
-func (h *Handler) handleQuery(w dns.ResponseWriter, req *dns.Msg) {
+func (h *Handler) handleQuery(req *dns.Msg) *dns.Msg {
 	var (
 		reply   dns.Msg
 		handled bool
@@ -229,66 +215,38 @@ func (h *Handler) handleQuery(w dns.ResponseWriter, req *dns.Msg) {
 	}
 	if handled {
 		reply.Truncate(truncateSize)
-		_ = w.WriteMsg(&reply)
-		return
+		return &reply
 	}
-	h.handleDefault(w, req)
+	return h.handleDefault(req)
 }
 
-func (h *Handler) handleDefault(w dns.ResponseWriter, req *dns.Msg) {
+func (h *Handler) handleDefault(req *dns.Msg) *dns.Msg {
 	for _, client := range h.clients {
 		for _, srv := range h.clientConfig.Servers {
 			addr := fmt.Sprintf("%s:%s", srv, h.clientConfig.Port)
 			reply, _, err := client.Exchange(req, addr)
 			if err == nil {
 				reply.Truncate(truncateSize)
-				_ = w.WriteMsg(reply)
-				return
+				return reply
 			}
 		}
 	}
 	var reply dns.Msg
 	reply.SetReply(req)
 	reply.Truncate(truncateSize)
-	_ = w.WriteMsg(&reply)
+	return &reply
 }
 
-func (h *Handler) ServeDNS(w dns.ResponseWriter, req *dns.Msg) {
-	switch req.Opcode {
+func (h *Handler) HandleDNSRequest(req []byte) *dns.Msg {
+	var (
+		original dns.Msg
+	)
+	_ = original.Unpack(req)
+	logrus.Println("DNS EVENT", original)
+	switch original.Opcode {
 	case dns.OpcodeQuery:
-		h.handleQuery(w, req)
+		return h.handleQuery(&original)
 	default:
-		h.handleDefault(w, req)
+		return h.handleDefault(&original)
 	}
-}
-
-func Start(udpLocalPort, tcpLocalPort int, IPv6 bool, hosts map[string]string) (*Server, error) {
-	h, err := newHandler(IPv6, hosts)
-	if err != nil {
-		return nil, err
-	}
-	server := &Server{}
-	if udpLocalPort > 0 {
-		addr := fmt.Sprintf("0.0.0.0:%d", udpLocalPort)
-		s := &dns.Server{Net: "udp", Addr: addr, Handler: h}
-		server.udp = s
-		logrus.Println("======DNS UDP=======")
-		go func() {
-			if e := s.ListenAndServe(); e != nil {
-				panic(e)
-			}
-		}()
-	}
-	if tcpLocalPort > 0 {
-		addr := fmt.Sprintf("0.0.0.0:%d", tcpLocalPort)
-		s := &dns.Server{Net: "tcp", Addr: addr, Handler: h}
-		server.tcp = s
-		logrus.Println("======DNS TCP=======")
-		go func() {
-			if e := s.ListenAndServe(); e != nil {
-				panic(e)
-			}
-		}()
-	}
-	return server, nil
 }

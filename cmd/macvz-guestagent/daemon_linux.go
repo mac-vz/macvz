@@ -58,6 +58,7 @@ func daemonAction(cmd *cobra.Command, args []string) error {
 	agent.PublishInfo()
 	logrus.Println("Published info...")
 	logrus.Println("Sending Events...")
+	agent.StartDNS()
 	agent.ListenAndSendEvents()
 	logrus.Println("Stopped sending events")
 	return nil

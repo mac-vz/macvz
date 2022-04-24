@@ -3,9 +3,9 @@ package guestagent
 import (
 	"encoding/binary"
 	"errors"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/hashicorp/yamux"
-	"github.com/mac-vz/macvz/pkg/guestagent/dns"
+	"github.com/mac-vz/macvz/pkg/guestagent/guestdns"
+	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/types"
 	"reflect"
 	"sync"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/elastic/go-libaudit/v2"
 	"github.com/elastic/go-libaudit/v2/auparse"
-	"github.com/joho/godotenv"
 	"github.com/mac-vz/macvz/pkg/guestagent/iptables"
 	"github.com/mac-vz/macvz/pkg/guestagent/procnettcp"
 	"github.com/mac-vz/macvz/pkg/guestagent/timesync"
@@ -137,30 +136,30 @@ func (a *agent) collectEvent(st eventState) (types.PortEvent, eventState) {
 	ev.Kind = types.PortMessage
 	if err != nil {
 		ev.Errors = append(ev.Errors, err.Error())
-		ev.Time = time.Now()
+		ev.Time = time.Now().Format(time.RFC3339)
 		return ev, newSt
 	}
 	ev.LocalPortsAdded, ev.LocalPortsRemoved = comparePorts(st.ports, newSt.ports)
-	ev.Time = time.Now()
+	ev.Time = time.Now().Format(time.RFC3339)
 	return ev, newSt
 }
 
 func isEventEmpty(ev types.PortEvent) bool {
 	var empty types.PortEvent
+	empty.Kind = types.PortMessage
 	// ignore ev.Time
 	copied := ev
-	copied.Time = time.Time{}
+	copied.Time = empty.Time
 	return reflect.DeepEqual(empty, copied)
+}
+
+func (a *agent) StartDNS() {
+	dnsServer, _ := guestdns.Start(23, 24, a.sess)
+	defer dnsServer.Shutdown()
 }
 
 func (a *agent) ListenAndSendEvents() {
 	tickerCh, tickerClose := a.newTicker()
-	hosts, err := godotenv.Read("/etc/macvz_hosts")
-	if err != nil {
-		logrus.Warn("Unable to fetch predefined hosts")
-	}
-	dnsServer, _ := dns.Start(23, 24, true, hosts)
-	defer dnsServer.Shutdown()
 
 	defer tickerClose()
 	var st eventState
@@ -168,12 +167,9 @@ func (a *agent) ListenAndSendEvents() {
 		var ev types.PortEvent
 		ev, st = a.collectEvent(st)
 		if !isEventEmpty(ev) {
-			encoder := getYamuxEncoder(a.sess)
+			encoder, _ := socket.GetIO(a.sess)
 			if encoder != nil {
-				err := encoder.Encode(ev)
-				if err != nil {
-					logrus.Error("Error writing", err)
-				}
+				socket.Write(encoder, ev)
 			}
 		}
 		select {
@@ -261,23 +257,11 @@ func (a *agent) PublishInfo() {
 	if err != nil {
 		logrus.Error("Error getting local ports", err)
 	}
-	encoder := getYamuxEncoder(a.sess)
+	encoder, _ := socket.GetIO(a.sess)
 	if encoder != nil {
 		info.Kind = types.InfoMessage
-		err := encoder.Encode(info)
-		if err != nil {
-			logrus.Error("Error writing", err)
-		}
+		socket.Write(encoder, info)
 	}
-}
-
-func getYamuxEncoder(sess *yamux.Session) *cbor.Encoder {
-	out, err := sess.Open()
-	if err != nil {
-		logrus.Error("error opening yamux session", err)
-		return nil
-	}
-	return cbor.NewEncoder(out)
 }
 
 const deltaLimit = 2 * time.Second

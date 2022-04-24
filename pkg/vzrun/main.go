@@ -5,16 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docker/go-units"
-	"github.com/fxamacker/cbor/v2"
 	"github.com/hashicorp/yamux"
-	"github.com/mac-vz/macvz/pkg/downloader"
-	"github.com/mac-vz/macvz/pkg/iso9660util"
+	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/mac-vz/vz"
-	"github.com/mitchellh/mapstructure"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net"
@@ -24,85 +21,19 @@ import (
 	"strings"
 )
 
-type Config struct {
+type VM struct {
 	Name        string
 	InstanceDir string
 	MacVZYaml   *yaml.MacVZYaml
+	Handlers    map[types.Kind]func(ctx context.Context, stream *yamux.Stream, event interface{})
+	sigintCh    chan os.Signal
 }
 
-func downloadImage(disk string, remote string) error {
-	res, err := downloader.Download(disk, remote,
-		downloader.WithCache(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to download %q: %w", remote, err)
-	}
-	switch res.Status {
-	case downloader.StatusDownloaded:
-		logrus.Infof("Downloaded image from %q", remote)
-	case downloader.StatusUsedCache:
-		logrus.Infof("Using cache %q", res.CachePath)
-	default:
-		logrus.Warnf("Unexpected result from downloader.Download(): %+v", res)
-	}
-	return nil
-}
-
-func EnsureDisk(ctx context.Context, cfg Config) error {
-	kernel := filepath.Join(cfg.InstanceDir, filenames.Kernel)
-	initrd := filepath.Join(cfg.InstanceDir, filenames.Initrd)
-	baseDisk := filepath.Join(cfg.InstanceDir, filenames.BaseDisk)
-	BaseDiskZip := filepath.Join(cfg.InstanceDir, filenames.BaseDiskZip)
-
-	if _, err := os.Stat(baseDisk); errors.Is(err, os.ErrNotExist) {
-		var ensuredRequiredImages bool
-		errs := make([]error, len(cfg.MacVZYaml.Images))
-		for i, f := range cfg.MacVZYaml.Images {
-			err := downloadImage(kernel, f.Kernel)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to download required images: %w", err)
-				continue
-			}
-			err = downloadImage(initrd, f.Initram)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to download required images: %w", err)
-				continue
-			}
-			err = downloadImage(BaseDiskZip, f.Base)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to download required images: %w", err)
-				continue
-			}
-			fileName := ""
-			if f.Arch == yaml.X8664 {
-				fileName = "amd64"
-			} else {
-				fileName = "arm64"
-			}
-			err = iso9660util.Extract(BaseDiskZip, "focal-server-cloudimg-"+fileName+".img", baseDisk)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to extract base image: %w", err)
-			}
-
-			ensuredRequiredImages = true
-			break
-		}
-		if !ensuredRequiredImages {
-			return fmt.Errorf("failed to download the required images, attempted %d candidates, errors=%v",
-				len(cfg.MacVZYaml.Images), errs)
-		}
-
-		inBytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
-		err := os.Truncate(baseDisk, inBytes)
-		if err != nil {
-			logrus.Println("Error during basedisk initial resize", err.Error())
-			return err
-		}
-	}
-	return nil
-}
-
-func Initialize(instName string) (*Config, error) {
+func InitializeVM(
+	instName string,
+	handlers map[types.Kind]func(ctx context.Context, stream *yamux.Stream, event interface{}),
+	sigintCh chan os.Signal,
+) (*VM, error) {
 	inst, err := store.Inspect(instName)
 	if err != nil {
 		return nil, err
@@ -113,16 +44,18 @@ func Initialize(instName string) (*Config, error) {
 		return nil, err
 	}
 
-	a := &Config{
+	a := &VM{
 		MacVZYaml:   y,
 		InstanceDir: inst.Dir,
 		Name:        inst.Name,
+		Handlers:    handlers,
+		sigintCh:    sigintCh,
 	}
 	return a, nil
 }
 
-func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) error {
-	y := cfg.MacVZYaml
+func (vm VM) Run() error {
+	y := vm.MacVZYaml
 
 	kernelCommandLineArguments := []string{
 		// Use the first virtio console device as system console.
@@ -133,10 +66,10 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 		"root=/dev/vda",
 	}
 
-	vmlinuz := filepath.Join(cfg.InstanceDir, filenames.Kernel)
-	initrd := filepath.Join(cfg.InstanceDir, filenames.Initrd)
-	diskPath := filepath.Join(cfg.InstanceDir, filenames.BaseDisk)
-	ciData := filepath.Join(cfg.InstanceDir, filenames.CIDataISO)
+	vmlinuz := filepath.Join(vm.InstanceDir, filenames.Kernel)
+	initrd := filepath.Join(vm.InstanceDir, filenames.Initrd)
+	diskPath := filepath.Join(vm.InstanceDir, filenames.BaseDisk)
+	ciData := filepath.Join(vm.InstanceDir, filenames.CIDataISO)
 
 	bootLoader := vz.NewLinuxBootLoader(
 		vmlinuz,
@@ -153,13 +86,13 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 	//setRawMode(os.Stdin)
 
 	// console
-	readFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStdoutLog))
-	writeFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStderrLog))
+	readFile, _ := os.Create(filepath.Join(vm.InstanceDir, filenames.VZStdoutLog))
+	writeFile, _ := os.Create(filepath.Join(vm.InstanceDir, filenames.VZStderrLog))
 	serialPortAttachment := vz.NewFileHandleSerialPortAttachment(readFile, writeFile)
 	consoleConfig := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
 
-	readFile1, _ := os.Create(filepath.Join(cfg.InstanceDir, "read.sock"))
-	writeFile1, _ := os.Create(filepath.Join(cfg.InstanceDir, "write.sock"))
+	readFile1, _ := os.Create(filepath.Join(vm.InstanceDir, "read.sock"))
+	writeFile1, _ := os.Create(filepath.Join(vm.InstanceDir, "write.sock"))
 	serialPortAttachment1 := vz.NewFileHandleSerialPortAttachment(readFile1, writeFile1)
 	console1Config := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment1)
 
@@ -210,7 +143,7 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 		vz.NewVirtioSocketDeviceConfiguration(),
 	})
 
-	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(cfg.MacVZYaml.Mounts))
+	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(vm.MacVZYaml.Mounts))
 	for i, mount := range y.Mounts {
 		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(mount.Location, mount.Location, !*mount.Writable)
 	}
@@ -221,11 +154,11 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 		logrus.Fatal("validation failed", err)
 	}
 
-	vm := vz.NewVirtualMachine(config)
+	machine := vz.NewVirtualMachine(config)
 
 	errCh := make(chan error, 1)
 
-	vm.Start(func(err error) {
+	machine.Start(func(err error) {
 		if err != nil {
 			errCh <- err
 		}
@@ -233,16 +166,16 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 
 	for {
 		select {
-		case <-sigintCh:
-			result, err := vm.RequestStop()
+		case <-vm.sigintCh:
+			result, err := machine.RequestStop()
 			if err != nil {
 				logrus.Println("request stop error:", err)
 				return nil
 			}
 			logrus.Println("recieved signal", result)
-		case newState := <-vm.StateChangedNotify():
+		case newState := <-machine.StateChangedNotify():
 			if newState == vz.VirtualMachineStateRunning {
-				pidFile := filepath.Join(cfg.InstanceDir, filenames.VZPid)
+				pidFile := filepath.Join(vm.InstanceDir, filenames.VZPid)
 				if err != nil {
 					return err
 				}
@@ -258,11 +191,11 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 
 				background, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				yamuxListener, err := createVSockListener(background, handlePortEvent)
+				yamuxListener, err := vm.createVSockListener(background)
 				if err != nil {
 					logrus.Fatal("Failed to create listener", err)
 				}
-				for _, socketDevice := range vm.SocketDevices() {
+				for _, socketDevice := range machine.SocketDevices() {
 					socketDevice.SetSocketListenerForPort(yamuxListener, 47)
 				}
 				logrus.Println("start VM is running")
@@ -278,8 +211,7 @@ func Run(cfg Config, sigintCh chan os.Signal, handlePortEvent func(ctx context.C
 	}
 }
 
-func createVSockListener(ctx context.Context, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) (*vz.VirtioSocketListener, error) {
-
+func (vm VM) createVSockListener(ctx context.Context) (*vz.VirtioSocketListener, error) {
 	connCh := make(chan *vz.VirtioSocketConnection)
 
 	go func() {
@@ -303,7 +235,7 @@ func createVSockListener(ctx context.Context, handlePortEvent func(ctx context.C
 
 				sess, _ = yamux.Client(conn, cfg)
 
-				go handleFromGuest(ctx, sess, handlePortEvent)
+				go vm.handleFromGuest(ctx, sess)
 			}
 		}
 	}()
@@ -318,7 +250,7 @@ func createVSockListener(ctx context.Context, handlePortEvent func(ctx context.C
 	return listener, nil
 }
 
-func handleFromGuest(ctx context.Context, sess *yamux.Session, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) {
+func (vm VM) handleFromGuest(ctx context.Context, sess *yamux.Session) {
 	for {
 		c, err := sess.AcceptStream()
 		logrus.Info("Found new connection")
@@ -329,46 +261,30 @@ func handleFromGuest(ctx context.Context, sess *yamux.Session, handlePortEvent f
 			return
 		}
 
-		go handleGuestConn(ctx, c, handlePortEvent)
+		go vm.handleGuestConn(ctx, c)
 	}
 }
 
-func handleGuestConn(ctx context.Context, c *yamux.Stream, handlePortEvent func(ctx context.Context, portEvent types.PortEvent)) {
+func (vm VM) handleGuestConn(ctx context.Context, c *yamux.Stream) {
 	defer c.Close()
 
-	dec := cbor.NewDecoder(c)
+	_, dec := socket.GetStreamIO(c)
 
 	var genericMap map[string]interface{}
 
-	err := dec.Decode(&genericMap)
-	logrus.Info("Decoded Map", genericMap)
-	if err != nil {
-		logrus.Error("error decoding response", err)
-	}
-
+	socket.Read(dec, &genericMap)
 	switch genericMap["kind"] {
 	case types.InfoMessage:
 		info := types.InfoEvent{}
-		decode(genericMap, &info)
-		logrus.Info("Event received", info)
+		socket.ReadMap(genericMap, &info)
+		logrus.Info("===Guest Info===", info)
 	case types.PortMessage:
 		event := types.PortEvent{}
-		decode(genericMap, &event)
-		logrus.Info("Event received", event)
-		handlePortEvent(context.Background(), event)
-	}
-}
-
-func encode(enc *cbor.Encoder, message interface{}) {
-	err := enc.Encode(message)
-	if err != nil {
-		logrus.Error("error encoding response", err)
-	}
-}
-
-func decode(src map[string]interface{}, dest interface{}) {
-	err := mapstructure.Decode(src, dest)
-	if err != nil {
-		logrus.Error("error mapping decoded values", err)
+		socket.ReadMap(genericMap, &event)
+		vm.Handlers[types.PortMessage](ctx, c, event)
+	case types.DNSMessage:
+		dns := types.DNSEvent{}
+		socket.ReadMap(genericMap, &dns)
+		vm.Handlers[types.DNSMessage](ctx, c, dns)
 	}
 }

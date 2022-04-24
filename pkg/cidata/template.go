@@ -16,10 +16,6 @@ var templateFS embed.FS
 
 const templateFSRoot = "cidata.TEMPLATE.d"
 
-type Containerd struct {
-	System bool
-	User   bool
-}
 type Network struct {
 	MACAddress string
 	Interface  string
@@ -30,17 +26,8 @@ type TemplateArgs struct {
 	User            string // user name
 	UID             int
 	SSHPubKeys      []string
-	Containerd      Containerd
-	Networks        []Network
-	SlirpNICName    string
-	SlirpGateway    string
-	SlirpDNS        string
-	SlirpIPAddress  string
 	UDPDNSLocalPort int
 	TCPDNSLocalPort int
-	Env             map[string]string
-	Hosts           map[string]string
-	DNSAddresses    []string
 }
 
 func ValidateTemplateArgs(args TemplateArgs) error {

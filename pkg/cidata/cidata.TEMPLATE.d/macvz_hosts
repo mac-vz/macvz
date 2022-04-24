@@ -1,4 +1,0 @@
-{{- range $key, $val := .Hosts}}
-{{$key}}={{$val}}
-{{- end}}
-
