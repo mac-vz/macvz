@@ -32,6 +32,7 @@ func newStaticClientConfig(ips []net.IP) (*dns.ClientConfig, error) {
 	return dns.ClientConfigFromReader(r)
 }
 
+//CreateHandler Starts DNS handler to receive request from guest
 func CreateHandler(IPv6 bool) (*Handler, error) {
 	cc, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
@@ -230,6 +231,7 @@ func (h *Handler) handleDefault(req *dns.Msg) *dns.Msg {
 	return &reply
 }
 
+//HandleDNSRequest Handles the DNS request from guest and returns response
 func (h *Handler) HandleDNSRequest(req []byte) *dns.Msg {
 	var (
 		original dns.Msg
@@ -243,6 +245,7 @@ func (h *Handler) HandleDNSRequest(req []byte) *dns.Msg {
 	}
 }
 
+//UpdateDefaults Updates the predefined list of cname and ip
 func (h *Handler) UpdateDefaults(hosts map[string]string) {
 	for host, address := range hosts {
 		if ip := net.ParseIP(address); ip != nil {

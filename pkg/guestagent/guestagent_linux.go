@@ -20,6 +20,7 @@ import (
 	"github.com/yalue/native_endian"
 )
 
+//New creates guest agent that takes care of guest to host communication
 func New(newTicker func() (<-chan time.Time, func()), sess *yamux.Session, iptablesIdle time.Duration) (Agent, error) {
 	a := &agent{
 		newTicker: newTicker,
