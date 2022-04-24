@@ -9,9 +9,13 @@ import (
 type Kind = string
 
 const (
-	PortMessage        Kind = "port-event"
-	InfoMessage        Kind = "info-event"
-	DNSMessage         Kind = "dns-event"
+	//PortMessage PortEvent kind
+	PortMessage Kind = "port-event"
+	//InfoMessage InfoEvent kind
+	InfoMessage Kind = "info-event"
+	//DNSMessage DNSEvent kind
+	DNSMessage Kind = "dns-event"
+	//DNSResponseMessage DNSEventResponse kind
 	DNSResponseMessage Kind = "dns-event-response"
 )
 
