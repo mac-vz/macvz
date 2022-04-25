@@ -1,4 +1,6 @@
-[![Go Report Card](https://goreportcard.com/badge/mac-vz/macvz)](https://goreportcard.com/report/github.com/mac-vz/macvz) 
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/mac-vz/macvz/Build%20and%20Test?label=Build%20and%20Test&logo=github)](https://github.com/mac-vz/macvz/actions/workflows/build.yml)
+[![Go Report Card](https://goreportcard.com/badge/mac-vz/macvz)](https://goreportcard.com/report/github.com/mac-vz/macvz)
+[![Codacy grade](https://img.shields.io/codacy/grade/40eae50295114eabba6b12b7372bed81?&logo=codacy)](https://www.codacy.com/gh/mac-vz/macvz/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=mac-vz/macvz&amp;utm_campaign=Badge_Grade)
 [![GitHub](https://img.shields.io/github/license/mac-vz/macvz?color=brightgreen)](https://github.com/mac-vz/macvz/blob/main/LICENSE)
 
 # MACVZ
@@ -10,37 +12,6 @@ The major difference is macvz uses macOS new [Virtualization API](https://develo
 # Requirements
 - Higher or equal to macOS monterey (12.2)
 - Golang
-
-# Wiki
-Check out Github Wiki page [Why use virtualization framework](https://github.com/mac-vz/macvz/wiki/Why-use-macOS-virtualization-framework-%3F) to understand more on advantages of Virtualization framework
-
-## Summary of filesystem performance with colima
-
-The following table contains result summary of some different workloads tested against macvz and colima
-
-### Summary for IOPS (Input Ouput Per Second)
-| Workload            | Summary                            | macvz   | colima |
-|---------------------|------------------------------------|---------|--------|
-| Sequential Reads    | macvz handles 8x higher operations | 620K    | 77K    |
-| Random Reads        | macvz handles 3x higher operations | 82K     | 25K    |
-| Random Reads/Writes | macvz handles 3x higher operations | 37K/12K | 14K/4K |
-| Sequential writes   | macvz performs almost equally      | 37K     | 38K    |
-| Random writes       | macvz performs almost equally      | 22K     | 30K    |
-
-### Summary for Bandwidth (Maximum amount of data transmitted)
-| Workload            | Summary                       | macvz      | colima    |
-|---------------------|-------------------------------|------------|-----------|
-| Sequential Reads    | macvz handles 8x more data    | 2500MB     | 306MB     |
-| Random Reads        | macvz handles 3x more data    | 320MB      | 98MB      |
-| Random Reads/Writes | macvz handles 3x more data    | 140MB/50MB | 60MB/20MB |
-| Sequential writes   | macvz performs almost equally | 145MB      | 150MB     |
-| Random writes       | macvz performs almost equally | 90MB       | 110MB     |
-
-# Features
-- [x] Start, stop, shell access for multiple VMs
-- [x] Filesystem mounting using virtfs
-- [x] Working docker example
-- [x] Port binding (Initial support present, Needs testing !!!)
 
 # Getting Started
 ## Installation via Homebrew
@@ -76,5 +47,41 @@ To stop a running VM,
 macvz stop docker
 ```
 
-## Project Status
+# Features
+- Ability to start, stop and shell access
+- Filesystem mounting using virtfs (See the performance report below)
+- Automatic Port forwarding
+- Custom DNS Resolution (like host.docker.internal)
+
+# Planned
+- Support for commands like list, delete, pause, resume
+- Support for different linux distros
+
+# Performance Summary
+
+## Summary of filesystem performance with colima
+
+The following table contains result summary of some different workloads tested against macvz and colima
+
+### Summary for IOPS (Input Ouput Per Second)
+| Workload            | Summary                            | macvz   | colima |
+|---------------------|------------------------------------|---------|--------|
+| Sequential Reads    | macvz handles 8x higher operations | 620K    | 77K    |
+| Random Reads        | macvz handles 3x higher operations | 82K     | 25K    |
+| Random Reads/Writes | macvz handles 3x higher operations | 37K/12K | 14K/4K |
+| Sequential writes   | macvz performs almost equally      | 37K     | 38K    |
+| Random writes       | macvz performs almost equally      | 22K     | 30K    |
+
+### Summary for Bandwidth (Maximum amount of data transmitted)
+| Workload            | Summary                       | macvz      | colima    |
+|---------------------|-------------------------------|------------|-----------|
+| Sequential Reads    | macvz handles 8x more data    | 2500MB     | 306MB     |
+| Random Reads        | macvz handles 3x more data    | 320MB      | 98MB      |
+| Random Reads/Writes | macvz handles 3x more data    | 140MB/50MB | 60MB/20MB |
+| Sequential writes   | macvz performs almost equally | 145MB      | 150MB     |
+| Random writes       | macvz performs almost equally | 90MB       | 110MB     |
+
+Check out Wiki page [Why use virtualization framework](https://github.com/mac-vz/macvz/wiki/Why-use-macOS-virtualization-framework-%3F) for detailed information
+
+# Project Status
 ⚠️ The project is still in early stage development and may introduce breaking changes.

@@ -5,6 +5,12 @@ set -eux
 # Install or update the guestagent binary
 install -m 755 "${MACVZ_CIDATA_MNT}"/macvz-guestagent /usr/local/bin/macvz-guestagent
 
+export CURRENT_IPADDR=$(hostname -I | awk '{print $1}')
+export GATEWAY_IPADDR=$(ip route | grep default | awk '{print $3}')
+
+echo "CURRENT_IPADDR=${CURRENT_IPADDR}" >/etc/macvz_hosts
+echo "GATEWAY_IPADDR=${GATEWAY_IPADDR}" >>/etc/macvz_hosts
+
 # Launch the guestagent service
 if [ -f /sbin/openrc-init ]; then
 	# Install the openrc macvz-guestagent service script

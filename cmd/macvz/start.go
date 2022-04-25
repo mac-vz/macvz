@@ -127,7 +127,7 @@ func loadOrCreateInstance(cmd *cobra.Command, args []string) (*store.Instance, e
 		return nil, err
 	}
 	if err := yaml.Validate(*y, true); err != nil {
-		rejectedYAML := "lima.REJECTED.yaml"
+		rejectedYAML := "macvz.REJECTED.yaml"
 		if writeErr := os.WriteFile(rejectedYAML, yBytes, 0644); writeErr != nil {
 			return nil, fmt.Errorf("the YAML is invalid, attempted to save the buffer as %q but failed: %v: %w", rejectedYAML, writeErr, err)
 		}

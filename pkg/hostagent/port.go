@@ -2,6 +2,7 @@ package hostagent
 
 import (
 	"context"
+	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"net"
 
@@ -22,11 +23,11 @@ func newPortForwarder(sshConfig *ssh.SSHConfig, rules []yaml.PortForward) *portF
 	}
 }
 
-func hostAddress(rule yaml.PortForward, guest api.IPPort) string {
+func hostAddress(rule yaml.PortForward, guest types.IPPort) string {
 	if rule.HostSocket != "" {
 		return rule.HostSocket
 	}
-	host := api.IPPort{IP: rule.HostIP}
+	host := types.IPPort{IP: rule.HostIP}
 	if guest.Port == 0 {
 		// guest is a socket
 		host.Port = rule.HostPort
@@ -36,7 +37,7 @@ func hostAddress(rule yaml.PortForward, guest api.IPPort) string {
 	return host.String()
 }
 
-func (pf *portForwarder) forwardingAddresses(guest api.IPPort) (string, string) {
+func (pf *portForwarder) forwardingAddresses(guest types.IPPort) (string, string) {
 	for _, rule := range pf.rules {
 		if rule.GuestSocket != "" {
 			continue
@@ -65,7 +66,7 @@ func (pf *portForwarder) forwardingAddresses(guest api.IPPort) (string, string) 
 	return "", guest.String()
 }
 
-func (pf *portForwarder) OnEvent(ctx context.Context, sshRemote string, ev api.Event) {
+func (pf *portForwarder) OnEvent(ctx context.Context, sshRemote string, ev types.PortEvent) {
 	for _, f := range ev.LocalPortsRemoved {
 		local, remote := pf.forwardingAddresses(f)
 		if local == "" {

@@ -45,7 +45,7 @@ func newApp() *cobra.Command {
 		if os.Geteuid() == 0 {
 			return errors.New("must not run as the root")
 		}
-		// Make sure either $HOME or $LIMA_HOME is defined, so we don't need
+		// Make sure either $HOME or $MACVZ_HOME is defined, so we don't need
 		// to check for errors later
 		if _, err := dirnames.MacVZDir(); err != nil {
 			return err

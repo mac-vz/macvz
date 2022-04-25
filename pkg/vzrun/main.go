@@ -5,16 +5,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/docker/go-units"
-	"github.com/mac-vz/macvz/pkg/cidata"
-	"github.com/mac-vz/macvz/pkg/downloader"
-	proxy "github.com/mac-vz/macvz/pkg/gvisor"
-	"github.com/mac-vz/macvz/pkg/iso9660util"
+	"github.com/hashicorp/yamux"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
+	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/mac-vz/vz"
+	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -22,85 +22,21 @@ import (
 	"strings"
 )
 
-type Config struct {
+//VM VirtualMachine instance
+type VM struct {
 	Name        string
 	InstanceDir string
 	MacVZYaml   *yaml.MacVZYaml
+	Handlers    map[types.Kind]func(ctx context.Context, stream *yamux.Stream, event interface{})
+	sigintCh    chan os.Signal
 }
 
-func downloadImage(disk string, remote string) error {
-	res, err := downloader.Download(disk, remote,
-		downloader.WithCache(),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to download %q: %w", remote, err)
-	}
-	switch res.Status {
-	case downloader.StatusDownloaded:
-		logrus.Infof("Downloaded image from %q", remote)
-	case downloader.StatusUsedCache:
-		logrus.Infof("Using cache %q", res.CachePath)
-	default:
-		logrus.Warnf("Unexpected result from downloader.Download(): %+v", res)
-	}
-	return nil
-}
-
-func EnsureDisk(ctx context.Context, cfg Config) error {
-	kernel := filepath.Join(cfg.InstanceDir, filenames.Kernel)
-	initrd := filepath.Join(cfg.InstanceDir, filenames.Initrd)
-	baseDisk := filepath.Join(cfg.InstanceDir, filenames.BaseDisk)
-	BaseDiskZip := filepath.Join(cfg.InstanceDir, filenames.BaseDiskZip)
-
-	if _, err := os.Stat(baseDisk); errors.Is(err, os.ErrNotExist) {
-		var ensuredRequiredImages bool
-		errs := make([]error, len(cfg.MacVZYaml.Images))
-		for i, f := range cfg.MacVZYaml.Images {
-			err := downloadImage(kernel, f.Kernel)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to download required images: %w", err)
-				continue
-			}
-			err = downloadImage(initrd, f.Initram)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to download required images: %w", err)
-				continue
-			}
-			err = downloadImage(BaseDiskZip, f.Base)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to download required images: %w", err)
-				continue
-			}
-			fileName := ""
-			if f.Arch == yaml.X8664 {
-				fileName = "amd64"
-			} else {
-				fileName = "arm64"
-			}
-			err = iso9660util.Extract(BaseDiskZip, "focal-server-cloudimg-"+fileName+".img", baseDisk)
-			if err != nil {
-				errs[i] = fmt.Errorf("failed to extract base image: %w", err)
-			}
-
-			ensuredRequiredImages = true
-			break
-		}
-		if !ensuredRequiredImages {
-			return fmt.Errorf("failed to download the required images, attempted %d candidates, errors=%v",
-				len(cfg.MacVZYaml.Images), errs)
-		}
-
-		inBytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
-		err := os.Truncate(baseDisk, inBytes)
-		if err != nil {
-			logrus.Println("Error during basedisk initial resize", err.Error())
-			return err
-		}
-	}
-	return nil
-}
-
-func Initialize(instName string) (*Config, error) {
+//InitializeVM Create a virtual machine instance
+func InitializeVM(
+	instName string,
+	handlers map[types.Kind]func(ctx context.Context, stream *yamux.Stream, event interface{}),
+	sigintCh chan os.Signal,
+) (*VM, error) {
 	inst, err := store.Inspect(instName)
 	if err != nil {
 		return nil, err
@@ -111,19 +47,19 @@ func Initialize(instName string) (*Config, error) {
 		return nil, err
 	}
 
-	if err := cidata.GenerateISO9660(inst.Dir, instName, y); err != nil {
-		return nil, err
-	}
-	a := &Config{
+	a := &VM{
 		MacVZYaml:   y,
 		InstanceDir: inst.Dir,
 		Name:        inst.Name,
+		Handlers:    handlers,
+		sigintCh:    sigintCh,
 	}
 	return a, nil
 }
 
-func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Context, vsock socket.VsockConnection)) error {
-	y := cfg.MacVZYaml
+//Run Starts the VM instance
+func (vm VM) Run() error {
+	y := vm.MacVZYaml
 
 	kernelCommandLineArguments := []string{
 		// Use the first virtio console device as system console.
@@ -134,10 +70,10 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 		"root=/dev/vda",
 	}
 
-	vmlinuz := filepath.Join(cfg.InstanceDir, filenames.Kernel)
-	initrd := filepath.Join(cfg.InstanceDir, filenames.Initrd)
-	diskPath := filepath.Join(cfg.InstanceDir, filenames.BaseDisk)
-	ciData := filepath.Join(cfg.InstanceDir, filenames.CIDataISO)
+	vmlinuz := filepath.Join(vm.InstanceDir, filenames.Kernel)
+	initrd := filepath.Join(vm.InstanceDir, filenames.Initrd)
+	diskPath := filepath.Join(vm.InstanceDir, filenames.BaseDisk)
+	ciData := filepath.Join(vm.InstanceDir, filenames.CIDataISO)
 
 	bootLoader := vz.NewLinuxBootLoader(
 		vmlinuz,
@@ -154,12 +90,19 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 	//setRawMode(os.Stdin)
 
 	// console
-	readFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStdoutLog))
-	writeFile, _ := os.Create(filepath.Join(cfg.InstanceDir, filenames.VZStderrLog))
+	readFile, _ := os.Create(filepath.Join(vm.InstanceDir, filenames.VZStdoutLog))
+	writeFile, _ := os.Create(filepath.Join(vm.InstanceDir, filenames.VZStderrLog))
 	serialPortAttachment := vz.NewFileHandleSerialPortAttachment(readFile, writeFile)
 	consoleConfig := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
+
+	readFile1, _ := os.Create(filepath.Join(vm.InstanceDir, "read.sock"))
+	writeFile1, _ := os.Create(filepath.Join(vm.InstanceDir, "write.sock"))
+	serialPortAttachment1 := vz.NewFileHandleSerialPortAttachment(readFile1, writeFile1)
+	console1Config := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment1)
+
 	config.SetSerialPortsVirtualMachineConfiguration([]*vz.VirtioConsoleDeviceSerialPortConfiguration{
 		consoleConfig,
+		console1Config,
 	})
 
 	// network
@@ -229,9 +172,10 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 		vz.NewVirtioSocketDeviceConfiguration(),
 	})
 
-	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(cfg.MacVZYaml.Mounts))
+	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(vm.MacVZYaml.Mounts))
 	for i, mount := range y.Mounts {
-		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(mount.Location, mount.Location, !*mount.Writable)
+		expand, _ := homedir.Expand(mount.Location)
+		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(expand, expand, !*mount.Writable)
 	}
 	config.SetDirectorySharingDevices(mounts)
 
@@ -240,11 +184,11 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 		logrus.Fatal("validation failed", err)
 	}
 
-	vm := vz.NewVirtualMachine(config)
+	machine := vz.NewVirtualMachine(config)
 
 	errCh := make(chan error, 1)
 
-	vm.Start(func(err error) {
+	machine.Start(func(err error) {
 		if err != nil {
 			errCh <- err
 		}
@@ -252,16 +196,16 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 
 	for {
 		select {
-		case <-sigintCh:
-			result, err := vm.RequestStop()
+		case <-vm.sigintCh:
+			result, err := machine.RequestStop()
 			if err != nil {
 				logrus.Println("request stop error:", err)
 				return nil
 			}
 			logrus.Println("recieved signal", result)
-		case newState := <-vm.StateChangedNotify():
+		case newState := <-machine.StateChangedNotify():
 			if newState == vz.VirtualMachineStateRunning {
-				pidFile := filepath.Join(cfg.InstanceDir, filenames.VZPid)
+				pidFile := filepath.Join(vm.InstanceDir, filenames.VZPid)
 				if err != nil {
 					return err
 				}
@@ -275,18 +219,14 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 					defer os.RemoveAll(pidFile)
 				}
 
-				//VM Write and Host reads
-				listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
-					logrus.Println("Connected")
-					background, cancel := context.WithCancel(context.Background())
-					defer cancel()
-					if err != nil {
-						logrus.Error("Error while starting host agent")
-					}
-					startEvents(background, socket.VsockConnection{Conn: conn})
-				})
-				for _, socketDevice := range vm.SocketDevices() {
-					socketDevice.SetSocketListenerForPort(listener, 2222)
+				background, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				yamuxListener, err := vm.createVSockListener(background)
+				if err != nil {
+					logrus.Fatal("Failed to create listener", err)
+				}
+				for _, socketDevice := range machine.SocketDevices() {
+					socketDevice.SetSocketListenerForPort(yamuxListener, 47)
 				}
 				logrus.Println("start VM is running")
 			}
@@ -296,6 +236,84 @@ func Run(cfg Config, sigintCh chan os.Signal, startEvents func(ctx context.Conte
 			}
 		case err := <-errCh:
 			logrus.Println("in start:", err)
+			return errors.New("error during start of VM")
 		}
+	}
+}
+
+func (vm VM) createVSockListener(ctx context.Context) (*vz.VirtioSocketListener, error) {
+	connCh := make(chan *vz.VirtioSocketConnection)
+
+	go func() {
+		var (
+			conn *vz.VirtioSocketConnection
+			sess *yamux.Session
+		)
+
+		for {
+			select {
+			case ci := <-connCh:
+				conn = ci
+
+				if sess != nil {
+					sess.Close()
+				}
+
+				cfg := yamux.DefaultConfig()
+				cfg.EnableKeepAlive = true
+				cfg.AcceptBacklog = 10
+
+				sess, _ = yamux.Client(conn, cfg)
+
+				go vm.handleFromGuest(ctx, sess)
+			}
+		}
+	}()
+
+	listener := vz.NewVirtioSocketListener(func(conn *vz.VirtioSocketConnection, err error) {
+		if err != nil {
+			return
+		}
+		connCh <- conn
+	})
+
+	return listener, nil
+}
+
+func (vm VM) handleFromGuest(ctx context.Context, sess *yamux.Session) {
+	for {
+		c, err := sess.AcceptStream()
+		if err != nil {
+			if !errors.Is(err, io.EOF) {
+				logrus.Warn("unable to accept new incoming yamux streams", "error", err)
+			}
+			return
+		}
+
+		go vm.handleGuestConn(ctx, c)
+	}
+}
+
+func (vm VM) handleGuestConn(ctx context.Context, c *yamux.Stream) {
+	defer c.Close()
+
+	_, dec := socket.GetStreamIO(c)
+
+	var genericMap map[string]interface{}
+
+	socket.Read(dec, &genericMap)
+	switch genericMap["kind"] {
+	case types.InfoMessage:
+		info := types.InfoEvent{}
+		socket.ReadMap(genericMap, &info)
+		vm.Handlers[types.InfoMessage](ctx, c, info)
+	case types.PortMessage:
+		event := types.PortEvent{}
+		socket.ReadMap(genericMap, &event)
+		vm.Handlers[types.PortMessage](ctx, c, event)
+	case types.DNSMessage:
+		dns := types.DNSEvent{}
+		socket.ReadMap(genericMap, &dns)
+		vm.Handlers[types.DNSMessage](ctx, c, dns)
 	}
 }

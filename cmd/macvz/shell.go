@@ -47,20 +47,19 @@ func shellAction(cmd *cobra.Command, args []string) error {
 	if len(args) >= 2 {
 		switch args[1] {
 		case "start", "delete", "shell":
-			// `lima start` (alias of `limactl $LIMA_INSTANCE start`) is probably a typo of `limactl start`
-			logrus.Warnf("Perhaps you meant `limactl %s`?", strings.Join(args[1:], " "))
+			logrus.Warnf("Perhaps you meant `macvz %s`?", strings.Join(args[1:], " "))
 		}
 	}
 
 	inst, err := store.Inspect(instName)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("instance %q does not exist, run `limactl start %s` to create a new instance", instName, instName)
+			return fmt.Errorf("instance %q does not exist, run `macvz start %s` to create a new instance", instName, instName)
 		}
 		return err
 	}
 	if inst.Status == store.StatusStopped {
-		return fmt.Errorf("instance %q is stopped, run `limactl start %s` to start the instance", instName, instName)
+		return fmt.Errorf("instance %q is stopped, run `macvz start %s` to start the instance", instName, instName)
 	}
 	y, err := inst.LoadYAML()
 	if err != nil {

@@ -18,12 +18,12 @@ import (
 )
 
 func ensureDisk(ctx context.Context, instName, instDir string, y *yaml.MacVZYaml) error {
-	qCfg := vzrun.Config{
+	vmCfg := vzrun.VM{
 		Name:        instName,
 		InstanceDir: instDir,
 		MacVZYaml:   y,
 	}
-	if err := vzrun.EnsureDisk(ctx, qCfg); err != nil {
+	if err := vzrun.EnsureDisk(ctx, vmCfg); err != nil {
 		return err
 	}
 
@@ -151,7 +151,7 @@ func watchHostAgentEvents(ctx context.Context, inst *store.Instance, haStdoutPat
 				return true
 			}
 
-			logrus.Infof("READY. Run `%s` to open the shell.", LimactlShellCmd(inst.Name))
+			logrus.Infof("READY. Run `%s` to open the shell.", MacvzShellCmd(inst.Name))
 			ShowMessage(inst)
 			err = nil
 			return true
@@ -174,10 +174,10 @@ func watchHostAgentEvents(ctx context.Context, inst *store.Instance, haStdoutPat
 	return nil
 }
 
-func LimactlShellCmd(instName string) string {
-	shellCmd := fmt.Sprintf("limactl shell %s", instName)
+func MacvzShellCmd(instName string) string {
+	shellCmd := fmt.Sprintf("macvz shell %s", instName)
 	if instName == "default" {
-		shellCmd = "lima"
+		shellCmd = "macvz"
 	}
 	return shellCmd
 }

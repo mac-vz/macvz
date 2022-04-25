@@ -3,14 +3,16 @@ package hostagent
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"github.com/hashicorp/yamux"
 	"github.com/lima-vm/sshocker/pkg/ssh"
+	"github.com/mac-vz/macvz/pkg/cidata"
+	"github.com/mac-vz/macvz/pkg/hostagent/dns"
 	"github.com/mac-vz/macvz/pkg/hostagent/events"
 	"github.com/mac-vz/macvz/pkg/socket"
+	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/vzrun"
 	"github.com/mac-vz/macvz/pkg/yaml"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -32,11 +34,15 @@ type HostAgent struct {
 	instName      string
 	sshConfig     *ssh.SSHConfig
 	portForwarder *portForwarder
-	onClose       []func() error // LIFO
+
+	udpDNSLocalPort int
+	tcpDNSLocalPort int
+	dnsHandler      *dns.Handler
+
+	onClose []func() error // LIFO
 
 	sigintCh chan os.Signal
 
-	vsock      socket.VsockConnection
 	sshRemote  string
 	eventEnc   *json.Encoder
 	eventEncMu sync.Mutex
@@ -65,6 +71,10 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 		AdditionalArgs: sshutil.SSHArgsFromOpts(sshOpts),
 	}
 
+	if err := cidata.GenerateISO9660(inst.Dir, instName, y); err != nil {
+		return nil, err
+	}
+
 	rules := make([]yaml.PortForward, 0, 2+len(y.PortForwards))
 	// Block ports 22 and sshLocalPort on all IPs
 	for _, port := range []int{22} {
@@ -78,6 +88,14 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 	yaml.FillPortForwardDefaults(&rule, inst.Dir)
 	rules = append(rules, rule)
 
+	var dnsHandler *dns.Handler
+	if *y.HostResolver.Enabled {
+		dnsHandler, err = dns.CreateHandler(*y.HostResolver.IPv6)
+		if err != nil {
+			logrus.Error("cannot start DNS server: %w", err)
+		}
+	}
+
 	a := &HostAgent{
 		y:             y,
 		instDir:       inst.Dir,
@@ -86,6 +104,7 @@ func New(instName string, sigintCh chan os.Signal) (*HostAgent, error) {
 		sigintCh:      sigintCh,
 		eventEnc:      json.NewEncoder(os.Stdout),
 		portForwarder: newPortForwarder(sshConfig, rules),
+		dnsHandler:    dnsHandler,
 	}
 
 	return a, nil
@@ -115,19 +134,54 @@ func (a *HostAgent) Run(ctx context.Context) error {
 		a.emitEvent(ctx, events.Event{Status: stRunning})
 	}()
 
+	handlers := make(map[types.Kind]func(ctx2 context.Context, stream *yamux.Stream, event interface{}))
+	handlers[types.InfoMessage] = a.infoEventHandler
+	handlers[types.PortMessage] = a.portEventHandler
+	handlers[types.DNSMessage] = a.dnsEventHandler
+
 	//Init vm
-	initialize, err := vzrun.Initialize(a.instName)
+	vm, err := vzrun.InitializeVM(a.instName, handlers, a.sigintCh)
 	if err != nil {
 		logrus.Fatal("INIT", err)
 	}
-	err = vzrun.Run(*initialize, a.sigintCh, func(ctx context.Context, vsock socket.VsockConnection) {
-		a.WatchGuestAgentEvents(ctx, vsock)
-	})
+	err = vm.Run()
 	if err != nil {
 		logrus.Fatal("RUN", err)
 	}
 	cancelHA()
 	return nil
+}
+
+func (a *HostAgent) infoEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
+	infoEvent := event.(types.InfoEvent)
+	hosts := a.y.HostResolver.Hosts
+	hosts["host.macvz.internal."] = infoEvent.GatewayIP
+	hosts[fmt.Sprintf("macvz-%s.", a.instName)] = infoEvent.GatewayIP
+	a.dnsHandler.UpdateDefaults(hosts)
+}
+
+func (a *HostAgent) portEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
+	portEvent := event.(types.PortEvent)
+	logrus.Debugf("guest agent event: %+v", portEvent)
+	for _, f := range portEvent.Errors {
+		logrus.Warnf("received error from the guest: %q", f)
+	}
+	sshRemoteUser := sshutil.SSHRemoteUser(*a.y.MACAddress)
+	a.portForwarder.OnEvent(ctx, sshRemoteUser, portEvent)
+}
+
+func (a *HostAgent) dnsEventHandler(ctx context.Context, stream *yamux.Stream, event interface{}) {
+	dnsEvent := event.(types.DNSEvent)
+	if a.dnsHandler != nil {
+		res := a.dnsHandler.HandleDNSRequest(dnsEvent.Msg)
+		pack, _ := res.Pack()
+		encoder, _ := socket.GetStreamIO(stream)
+		resEvent := types.DNSEventResponse{
+			Msg: pack,
+		}
+		resEvent.Kind = types.DNSResponseMessage
+		_ = encoder.Encode(&resEvent)
+	}
 }
 
 func (a *HostAgent) setSSHRemote(remote string) {
@@ -168,7 +222,7 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 	logrus.Debugf("Forwarding unix sockets")
 	for _, rule := range a.y.PortForwards {
 		if rule.GuestSocket != "" {
-			local := hostAddress(rule, guestagentapi.IPPort{})
+			local := hostAddress(rule, types.IPPort{})
 			_ = forwardSSH(ctx, a.sshConfig, a.sshRemote, local, rule.GuestSocket, verbForward)
 		}
 	}
@@ -178,7 +232,7 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 		var mErr error
 		for _, rule := range a.y.PortForwards {
 			if rule.GuestSocket != "" {
-				local := hostAddress(rule, guestagentapi.IPPort{})
+				local := hostAddress(rule, types.IPPort{})
 				// using ctx.Background() because ctx has already been cancelled
 				if err := forwardSSH(context.Background(), a.sshConfig, a.sshRemote, local, rule.GuestSocket, verbCancel); err != nil {
 					mErr = multierror.Append(mErr, err)
@@ -189,55 +243,17 @@ func (a *HostAgent) ForwardDefinedSockets(ctx context.Context) {
 	})
 
 	for {
-		_, _, err := ssh.ExecuteScript(a.sshRemote, 22, a.sshConfig, `#!/bin/bash
-true`, "Ping to keep SSH Master alive")
-		if err != nil {
-			logrus.Error("SSH Ping to guest failed", err)
-		}
+		//		_, _, err := ssh.ExecuteScript(a.sshRemote, 22, a.sshConfig, `#!/bin/bash
+		//true`, "Ping to keep SSH Master alive")
+		//		if err != nil {
+		//			logrus.Error("SSH Ping to guest failed", err)
+		//		}
 		select {
 		case <-ctx.Done():
 			return
 		case <-time.After(10 * time.Second):
 		}
 	}
-}
-
-func (a *HostAgent) WatchGuestAgentEvents(ctx context.Context, conn socket.VsockConnection) {
-	if err := a.processGuestAgentEvents(ctx, conn); err != nil {
-		if !errors.Is(err, context.Canceled) {
-			logrus.WithError(err).Warn("connection to the guest agent was closed unexpectedly")
-		}
-	}
-}
-
-func (a *HostAgent) processGuestAgentEvents(ctx context.Context, conn socket.VsockConnection) error {
-	var first = true
-	conn.ReadEvents(func(data string) {
-		if first {
-			var negotiate guestagentapi.Info
-			err := json.Unmarshal([]byte(data), &negotiate)
-			if err != nil {
-				logrus.Error("Error during parse of negotiate")
-				return
-			}
-			first = false
-			logrus.Debugf("guest agent info: %+v", negotiate)
-		} else {
-			var event guestagentapi.Event
-			err := json.Unmarshal([]byte(data), &event)
-			if err != nil {
-				logrus.Error("Error during parse of event")
-				return
-			}
-			logrus.Debugf("guest agent event: %+v", event)
-			for _, f := range event.Errors {
-				logrus.Warnf("received error from the guest: %q", f)
-			}
-			sshRemoteUser := sshutil.SSHRemoteUser(*a.y.MACAddress)
-			a.portForwarder.OnEvent(ctx, sshRemoteUser, event)
-		}
-	})
-	return io.EOF
 }
 
 func (a *HostAgent) emitEvent(ctx context.Context, ev events.Event) {
@@ -289,7 +305,6 @@ func forwardSSH(ctx context.Context, sshConfig *ssh.SSHConfig, userAndIp string,
 			panic(fmt.Errorf("invalid verb %q", verb))
 		}
 	}
-	logrus.Println("Forwarding=====", args)
 	cmd := exec.CommandContext(ctx, sshConfig.Binary(), args...)
 	if out, err := cmd.Output(); err != nil {
 		if verb == verbForward && strings.HasPrefix(local, "/") {

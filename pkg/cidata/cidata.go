@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/mac-vz/macvz/pkg/sshutil"
 	"github.com/mac-vz/macvz/pkg/yaml"
+	"github.com/mitchellh/go-homedir"
 	"io"
 	"io/fs"
 	"os"
@@ -16,7 +17,6 @@ import (
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/osutil"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
-	"github.com/mitchellh/go-homedir"
 )
 
 func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
@@ -51,12 +51,10 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 		args.SSHPubKeys = append(args.SSHPubKeys, f.Content)
 	}
 
-	for _, f := range y.Mounts {
-		expanded, err := homedir.Expand(f.Location)
-		if err != nil {
-			return err
-		}
-		args.Mounts = append(args.Mounts, expanded)
+	if *y.HostResolver.Enabled {
+		//TODO - Random post assignment in guest or replace port 53
+		args.UDPDNSLocalPort = 23
+		args.TCPDNSLocalPort = 24
 	}
 
 	if err := ValidateTemplateArgs(args); err != nil {
@@ -70,8 +68,9 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 
 	var sb strings.Builder
 	for _, mount := range y.Mounts {
-		sb.WriteString(fmt.Sprintf("sudo mkdir -p %s\n", mount.Location))
-		sb.WriteString(fmt.Sprintf("sudo mount -t virtiofs %s %s", mount.Location, mount.Location))
+		expand, _ := homedir.Expand(mount.Location)
+		sb.WriteString(fmt.Sprintf("sudo mkdir -p %s\n", expand))
+		sb.WriteString(fmt.Sprintf("sudo mount -t virtiofs %s %s", expand, expand))
 	}
 	layout = append(layout, iso9660util.Entry{
 		Path:   fmt.Sprintf("provision.%s/%08d", yaml.ProvisionModeSystem, 0),

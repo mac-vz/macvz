@@ -2,11 +2,11 @@
 set -eu
 
 INFO() {
-	echo "LIMA| $*"
+	echo "MACVZ| $*"
 }
 
 WARNING() {
-	echo "LIMA| WARNING: $*"
+	echo "MACVZ| WARNING: $*"
 }
 
 whoami
@@ -40,7 +40,7 @@ if [ -d "${MACVZ_CIDATA_MNT}"/provision.system ]; then
 	done
 fi
 
-USER_SCRIPT="/home/${MACVZ_CIDATA_USER}.linux/.lima-user-script"
+USER_SCRIPT="/home/${MACVZ_CIDATA_USER}.linux/.macvz-user-script"
 if [ -d "${MACVZ_CIDATA_MNT}"/provision.user ]; then
 	if [ ! -f /sbin/openrc-init ]; then
 		until [ -e "/run/user/${MACVZ_CIDATA_UID}/systemd/private" ]; do sleep 3; done
@@ -60,7 +60,7 @@ fi
 
 # Signal that provisioning is done. The instance-id in the meta-data file changes on every boot,
 # so any copy from a previous boot cycle will have different content.
-cp "${MACVZ_CIDATA_MNT}"/meta-data /run/lima-boot-done
+cp "${MACVZ_CIDATA_MNT}"/meta-data /run/macvz-boot-done
 
 INFO "Exiting with code $CODE"
 exit "$CODE"
