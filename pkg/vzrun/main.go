@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/docker/go-units"
 	"github.com/hashicorp/yamux"
+	proxy "github.com/mac-vz/macvz/pkg/gvisor"
 	"github.com/mac-vz/macvz/pkg/socket"
 	"github.com/mac-vz/macvz/pkg/store"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
@@ -106,10 +107,10 @@ func (vm VM) Run() error {
 	})
 
 	// network
-	serverNetSock := filepath.Join(cfg.InstanceDir, filenames.VZNetServer)
-	clientNetSock := filepath.Join(cfg.InstanceDir, filenames.VZNetClient)
-	vzGVisorSock := filepath.Join(cfg.InstanceDir, filenames.VZGVisorSock)
-	gVisorSock := filepath.Join(cfg.InstanceDir, filenames.GVisorSock)
+	serverNetSock := filepath.Join(vm.InstanceDir, filenames.VZNetServer)
+	clientNetSock := filepath.Join(vm.InstanceDir, filenames.VZNetClient)
+	vzGVisorSock := filepath.Join(vm.InstanceDir, filenames.VZGVisorSock)
+	gVisorSock := filepath.Join(vm.InstanceDir, filenames.GVisorSock)
 	macAddr, err := net.ParseMAC(*y.MACAddress)
 
 	serverNet := socket.ListenUnixGram(serverNetSock)

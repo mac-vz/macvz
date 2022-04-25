@@ -35,6 +35,7 @@ require (
 require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/containers/gvisor-tap-vsock v0.3.1-0.20220309080941-bda57eac5e52 // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/google/go-cmp v0.5.7 // indirect
