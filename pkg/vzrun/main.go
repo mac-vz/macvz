@@ -123,14 +123,8 @@ func (vm VM) Run() error {
 	networkConfig.SetMACAddress(vz.NewMACAddress(macAddr))
 
 	go func() {
-		err3 := os.Remove(gVisorSock)
-		if err3 != nil {
-			logrus.Fatal("Error while listening to network.sock", err3)
-		}
-		err3 = os.Remove(vzGVisorSock)
-		if err3 != nil {
-			logrus.Fatal("Error while listening to vznetwork.sock", err3)
-		}
+		_ = os.Remove(gVisorSock)
+		_ = os.Remove(vzGVisorSock)
 		proxy.StartProxy(gVisorSock, true, vzGVisorSock, *y.MACAddress, serverNet, clientNet.LocalAddr())
 	}()
 

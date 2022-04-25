@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/lima-vm/sshocker/pkg/ssh"
-	"github.com/mac-vz/macvz/pkg/osutil"
 	"os/exec"
 	"strings"
 	"time"
@@ -77,20 +76,20 @@ type requirement struct {
 
 func (a *HostAgent) hostRequirements() []requirement {
 	req := make([]requirement, 0)
-	req = append(req,
-		requirement{
-			description: "Host IP Bind",
-			script: fmt.Sprintf(`#!/bin/bash
-if [[ $( arp -a | grep -w -i '%s' | awk '{print $2}') ]]; then 
-  exit 0 
-else 
-  exit 1 
-fi
-`, osutil.TrimMACAddress(*a.y.MACAddress)),
-			debugHint: `Failed to acquire host IP.
-`,
-			host: true,
-		})
+	//	req = append(req,
+	//		requirement{
+	//			description: "Host IP Bind",
+	//			script: fmt.Sprintf(`#!/bin/bash
+	//if [[ $( arp -a | grep -w -i '%s' | awk '{print $2}') ]]; then
+	//  exit 0
+	//else
+	//  exit 1
+	//fi
+	//`, osutil.TrimMACAddress(*a.y.MACAddress)),
+	//			debugHint: `Failed to acquire host IP.
+	//`,
+	//			host: true,
+	//		})
 	return req
 }
 

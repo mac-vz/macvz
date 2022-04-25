@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/dustin/go-humanize"
-	"github.com/mac-vz/macvz/pkg/socket"
+	"io"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -54,7 +54,7 @@ func StartProxy(gVisorSock string, listenDebug bool, vzGVisorSock string, macAdd
 	groupErrs, ctx := errgroup.WithContext(ctx)
 
 	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
+		//logrus.SetLevel(logrus.DebugLevel)
 	}
 
 	// Make sure the qemu socket provided is valid syntax
@@ -146,7 +146,8 @@ func StartProxy(gVisorSock string, listenDebug bool, vzGVisorSock string, macAdd
 		if err2 != nil {
 			logrus.Fatal("Error while listening to gvisor", err2)
 		}
-		socket.Pipe(vzDataGram, conn, addr)
+		go io.Copy(conn, vzDataGram)
+		go io.Copy(vzDataGram, conn)
 		return nil
 	})
 
