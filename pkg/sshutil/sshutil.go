@@ -140,6 +140,9 @@ func SSHOpts(instDir string, useDotSSH, forwardAgent bool) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	//Run generation of public keys, so it can be used in common opts
+	_, _ = DefaultPubKeys(true)
 	opts, err := CommonOpts(useDotSSH)
 	if err != nil {
 		return nil, err
