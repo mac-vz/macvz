@@ -24,7 +24,12 @@ func EnsureDisk(ctx context.Context, cfg VM) error {
 	if _, err := os.Stat(baseDisk); errors.Is(err, os.ErrNotExist) {
 		var ensuredRequiredImages bool
 		errs := make([]error, len(cfg.MacVZYaml.Images))
+		resolveArch := yaml.ResolveArch()
 		for i, f := range cfg.MacVZYaml.Images {
+			if f.Arch != resolveArch {
+				errs[i] = fmt.Errorf("image architecture %s didn't match system architecture: %s", f.Arch, resolveArch)
+				continue
+			}
 			err := downloadImage(kernel, f.Kernel)
 			if err != nil {
 				errs[i] = fmt.Errorf("failed to download required images: %w", err)
@@ -49,6 +54,7 @@ func EnsureDisk(ctx context.Context, cfg VM) error {
 			err = iso9660util.Extract(BaseDiskZip, "focal-server-cloudimg-"+fileName+".img", baseDisk)
 			if err != nil {
 				errs[i] = fmt.Errorf("failed to extract base image: %w", err)
+				continue
 			}
 
 			ensuredRequiredImages = true
