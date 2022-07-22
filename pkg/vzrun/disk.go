@@ -1,22 +1,26 @@
 package vzrun
 
 import (
+	"compress/gzip"
 	"context"
 	"errors"
 	"fmt"
 	"github.com/docker/go-units"
+	"github.com/h2non/filetype"
+	"github.com/h2non/filetype/matchers"
 	"github.com/mac-vz/macvz/pkg/downloader"
 	"github.com/mac-vz/macvz/pkg/iso9660util"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/mac-vz/macvz/pkg/yaml"
 	"github.com/sirupsen/logrus"
+	"io"
 	"os"
 	"path/filepath"
 )
 
 //EnsureDisk Creates. and verifies if the VM Disk are present
 func EnsureDisk(ctx context.Context, cfg VM) error {
-	kernel := filepath.Join(cfg.InstanceDir, filenames.Kernel)
+	kernelCompressed := filepath.Join(cfg.InstanceDir, filenames.KernelCompressed)
 	initrd := filepath.Join(cfg.InstanceDir, filenames.Initrd)
 	baseDisk := filepath.Join(cfg.InstanceDir, filenames.BaseDisk)
 	BaseDiskZip := filepath.Join(cfg.InstanceDir, filenames.BaseDiskZip)
@@ -30,7 +34,7 @@ func EnsureDisk(ctx context.Context, cfg VM) error {
 				errs[i] = fmt.Errorf("image architecture %s didn't match system architecture: %s", f.Arch, resolveArch)
 				continue
 			}
-			err := downloadImage(kernel, f.Kernel)
+			err := downloadImage(kernelCompressed, f.Kernel)
 			if err != nil {
 				errs[i] = fmt.Errorf("failed to download required images: %w", err)
 				continue
@@ -65,10 +69,14 @@ func EnsureDisk(ctx context.Context, cfg VM) error {
 				len(cfg.MacVZYaml.Images), errs)
 		}
 
+		err = uncompress(kernelCompressed, filepath.Join(cfg.InstanceDir, filenames.Kernel))
+		if err != nil {
+			logrus.Error("Error during uncompressing of kernel", err.Error())
+		}
 		inBytes, _ := units.RAMInBytes(*cfg.MacVZYaml.Disk)
 		err := os.Truncate(baseDisk, inBytes)
 		if err != nil {
-			logrus.Println("Error during basedisk initial resize", err.Error())
+			logrus.Error("Error during basedisk initial resize", err.Error())
 			return err
 		}
 	}
@@ -91,4 +99,72 @@ func downloadImage(disk string, remote string) error {
 		logrus.Warnf("Unexpected result from downloader.Download(): %+v", res)
 	}
 	return nil
+}
+
+func isKernelUncompressed(filename string) (bool, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return false, err
+	}
+	defer file.Close()
+
+	buf := make([]byte, 2048)
+	_, err = file.Read(buf)
+	if err != nil {
+		return false, err
+	}
+	kind, err := filetype.Match(buf)
+	if err != nil {
+		return false, err
+	}
+	// uncompressed ARM64 kernels are matched as a MS executable, which is
+	// also an archive, so we need to special case it
+	if kind == matchers.TypeExe {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func uncompress(compressedFile string, targetFile string) error {
+	uncompressed, err := isKernelUncompressed(compressedFile)
+	if err != nil {
+		logrus.Error("Error during uncompressing of kernel", err.Error())
+		return err
+	}
+
+	gzipFile, err := os.Open(compressedFile)
+	if err != nil {
+		return err
+	}
+
+	writer, err := os.Create(targetFile)
+	if err != nil {
+		return err
+	}
+	defer writer.Close()
+
+	if uncompressed {
+		logrus.Println("Skipping uncompress of kernel...")
+		reader, err := os.Open(compressedFile)
+		if err != nil {
+			return err
+		}
+		defer reader.Close()
+		if _, err = io.Copy(writer, reader); err != nil {
+			return err
+		}
+		return nil
+	} else {
+		logrus.Println("Trying to uncompress kernel...")
+		reader, err := gzip.NewReader(gzipFile)
+		if err != nil {
+			return err
+		}
+		defer reader.Close()
+		if _, err = io.Copy(writer, reader); err != nil {
+			return err
+		}
+		return nil
+	}
 }

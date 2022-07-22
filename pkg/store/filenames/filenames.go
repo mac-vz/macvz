@@ -7,9 +7,7 @@ package filenames
 // Instance names starting with an underscore are reserved for lima internal usage
 
 const (
-	ConfigDir   = "_config"
-	CacheDir    = "_cache"    // not yet implemented
-	NetworksDir = "_networks" // network log files are stored here
+	ConfigDir = "_config"
 )
 
 // Filenames used inside the ConfigDir
@@ -17,7 +15,6 @@ const (
 const (
 	UserPrivateKey = "user"
 	UserPublicKey  = UserPrivateKey + ".pub"
-	NetworksConfig = "networks.yaml"
 	Default        = "default.yaml"
 	Override       = "override.yaml"
 )
@@ -25,12 +22,13 @@ const (
 // Filenames that may appear under an instance directory
 
 const (
-	MacVZYAML   = "macvz.yaml"
-	CIDataISO   = "cidata.iso"
-	BaseDiskZip = "basedisk.zip"
-	BaseDisk    = "basedisk"
-	Kernel      = "vmlinux"
-	Initrd      = "initrd"
+	MacVZYAML        = "macvz.yaml"
+	CIDataISO        = "cidata.iso"
+	BaseDiskZip      = "basedisk.zip"
+	BaseDisk         = "basedisk"
+	KernelCompressed = "vmlinux-compressed"
+	Kernel           = "vmlinux"
+	Initrd           = "initrd"
 
 	HaStdoutLog = "ha.stdout.log"
 	HaStderrLog = "ha.stderr.log"

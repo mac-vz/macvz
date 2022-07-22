@@ -11,6 +11,7 @@ require (
 	github.com/docker/go-units v0.4.0
 	github.com/elastic/go-libaudit/v2 v2.2.0
 	github.com/fxamacker/cbor/v2 v2.4.0
+	github.com/h2non/filetype v1.1.3
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87
 	github.com/joho/godotenv v1.4.0
