@@ -85,3 +85,7 @@ Check out Wiki page [Why use virtualization framework](https://github.com/mac-vz
 
 # Project Status
 ⚠️ The project is still in early stage development and may introduce breaking changes.
+
+# Supporters
+
+[<img src="https://uploads-ssl.webflow.com/5ac3c046c82724970fc60918/5c019d917bba312af7553b49_MacStadium-developerlogo.png" style="max-height: 150px;width: 150px"/>](https://macstadium.com)
