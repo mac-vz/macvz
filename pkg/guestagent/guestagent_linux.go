@@ -21,12 +21,13 @@ import (
 	"github.com/yalue/native_endian"
 )
 
-//New creates guest agent that takes care of guest to host communication
+// New creates guest agent that takes care of guest to host communication
 func New(newTicker func() (<-chan time.Time, func()), sess *yamux.Session, iptablesIdle time.Duration) (Agent, error) {
 	a := &agent{
 		newTicker: newTicker,
 		sess:      sess,
 	}
+	go a.fixSystemTimeSkew()
 
 	auditClient, err := libaudit.NewMulticastAuditClient(nil)
 	if err != nil {
@@ -43,7 +44,6 @@ func New(newTicker func() (<-chan time.Time, func()), sess *yamux.Session, iptab
 	}
 
 	go a.setWorthCheckingIPTablesRoutine(auditClient, iptablesIdle)
-	go a.fixSystemTimeSkew()
 	return a, nil
 }
 
