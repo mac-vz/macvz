@@ -88,8 +88,8 @@ func GenerateISO9660(instDir, name string, y *yaml.MacVZYaml) error {
 			return fmt.Errorf("unknown provision mode %q", f.Mode)
 		}
 	}
-
-	if guestAgentBinary, err := GuestAgentBinary(y.Images[0].Arch); err != nil {
+	arch := yaml.ResolveArch()
+	if guestAgentBinary, err := GuestAgentBinary(arch); err != nil {
 		return err
 	} else {
 		defer guestAgentBinary.Close()
