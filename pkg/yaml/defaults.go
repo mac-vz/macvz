@@ -3,10 +3,10 @@ package yaml
 import (
 	"bytes"
 	"fmt"
+	"github.com/Code-Hex/vz/v2"
 	"github.com/mac-vz/macvz/pkg/guestagent/api"
 	"github.com/mac-vz/macvz/pkg/osutil"
 	"github.com/mac-vz/macvz/pkg/store/filenames"
-	"github.com/mac-vz/vz"
 	"github.com/sirupsen/logrus"
 	"github.com/xorcare/pointer"
 	"net"

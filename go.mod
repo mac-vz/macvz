@@ -3,6 +3,7 @@ module github.com/mac-vz/macvz
 go 1.18
 
 require (
+	github.com/Code-Hex/vz/v2 v2.2.0
 	github.com/alessio/shellescape v1.4.1
 	github.com/cheggaaa/pb/v3 v3.0.8
 	github.com/containerd/continuity v0.2.2
@@ -16,11 +17,11 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20211028200310-0bc27b27de87
 	github.com/joho/godotenv v1.4.0
 	github.com/lima-vm/sshocker v0.2.2
-	github.com/mac-vz/vz v0.0.5-0.20220331053356-10268d2f0d0c
 	github.com/mattn/go-isatty v0.0.14
 	github.com/mdlayher/vsock v1.1.1
 	github.com/miekg/dns v1.1.47
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/mapstructure v1.5.0
 	github.com/norouter/norouter v0.6.4
 	github.com/nxadm/tail v1.4.8
 	github.com/opencontainers/go-digest v1.0.0
@@ -28,7 +29,7 @@ require (
 	github.com/spf13/cobra v1.4.0
 	github.com/xorcare/pointer v1.1.0
 	github.com/yalue/native_endian v1.0.2
-	golang.org/x/sys v0.0.0-20220204135822-1c1b9b1eba6a
+	golang.org/x/sys v0.0.0-20220808155132-1c4a2a72c664
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.1.0
 )
@@ -45,10 +46,9 @@ require (
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-runewidth v0.0.12 // indirect
 	github.com/mdlayher/socket v0.2.0 // indirect
-	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/rs/xid v1.3.0 // indirect
+	github.com/rs/xid v1.4.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/x448/float16 v0.8.4 // indirect

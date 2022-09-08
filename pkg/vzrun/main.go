@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Code-Hex/vz/v2"
 	"github.com/docker/go-units"
 	"github.com/hashicorp/yamux"
 	"github.com/mac-vz/macvz/pkg/socket"
@@ -11,7 +12,6 @@ import (
 	"github.com/mac-vz/macvz/pkg/store/filenames"
 	"github.com/mac-vz/macvz/pkg/types"
 	"github.com/mac-vz/macvz/pkg/yaml"
-	"github.com/mac-vz/vz"
 	"github.com/mitchellh/go-homedir"
 	"github.com/sirupsen/logrus"
 	"io"
@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-//VM VirtualMachine instance
+// VM VirtualMachine instance
 type VM struct {
 	Name        string
 	InstanceDir string
@@ -31,7 +31,7 @@ type VM struct {
 	sigintCh    chan os.Signal
 }
 
-//InitializeVM Create a virtual machine instance
+// InitializeVM Create a virtual machine instance
 func InitializeVM(
 	instName string,
 	handlers map[types.Kind]func(ctx context.Context, stream *yamux.Stream, event interface{}),
@@ -57,7 +57,7 @@ func InitializeVM(
 	return a, nil
 }
 
-//Run Starts the VM instance
+// Run Starts the VM instance
 func (vm VM) Run() error {
 	y := vm.MacVZYaml
 
@@ -150,9 +150,11 @@ func (vm VM) Run() error {
 	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(vm.MacVZYaml.Mounts))
 	for i, mount := range y.Mounts {
 		expand, _ := homedir.Expand(mount.Location)
-		mounts[i] = vz.NewVZVirtioFileSystemDeviceConfiguration(expand, expand, !*mount.Writable)
+		config := vz.NewVirtioFileSystemDeviceConfiguration(expand)
+		config.SetDirectoryShare(vz.NewSingleDirectoryShare(vz.NewSharedDirectory(expand, !*mount.Writable)))
+		mounts[i] = config
 	}
-	config.SetDirectorySharingDevices(mounts)
+	config.SetDirectorySharingDevicesVirtualMachineConfiguration(mounts)
 
 	validated, err := config.Validate()
 	if !validated || err != nil {
