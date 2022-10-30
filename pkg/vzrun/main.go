@@ -75,14 +75,14 @@ func (vm VM) Run() error {
 	diskPath := filepath.Join(vm.InstanceDir, filenames.BaseDisk)
 	ciData := filepath.Join(vm.InstanceDir, filenames.CIDataISO)
 
-	bootLoader := vz.NewLinuxBootLoader(
+	bootLoader, err := vz.NewLinuxBootLoader(
 		vmlinuz,
 		vz.WithCommandLine(strings.Join(kernelCommandLineArguments, " ")),
 		vz.WithInitrd(initrd),
 	)
 
 	bytes, err := units.RAMInBytes(*y.Memory)
-	config := vz.NewVirtualMachineConfiguration(
+	config, err := vz.NewVirtualMachineConfiguration(
 		bootLoader,
 		uint(*y.CPUs),
 		uint64(bytes),
@@ -92,13 +92,13 @@ func (vm VM) Run() error {
 	// console
 	readFile, _ := os.Create(filepath.Join(vm.InstanceDir, filenames.VZStdoutLog))
 	writeFile, _ := os.Create(filepath.Join(vm.InstanceDir, filenames.VZStderrLog))
-	serialPortAttachment := vz.NewFileHandleSerialPortAttachment(readFile, writeFile)
-	consoleConfig := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
+	serialPortAttachment, err := vz.NewFileHandleSerialPortAttachment(readFile, writeFile)
+	consoleConfig, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment)
 
 	readFile1, _ := os.Create(filepath.Join(vm.InstanceDir, "read.sock"))
 	writeFile1, _ := os.Create(filepath.Join(vm.InstanceDir, "write.sock"))
-	serialPortAttachment1 := vz.NewFileHandleSerialPortAttachment(readFile1, writeFile1)
-	console1Config := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment1)
+	serialPortAttachment1, err := vz.NewFileHandleSerialPortAttachment(readFile1, writeFile1)
+	console1Config, err := vz.NewVirtioConsoleDeviceSerialPortConfiguration(serialPortAttachment1)
 
 	config.SetSerialPortsVirtualMachineConfiguration([]*vz.VirtioConsoleDeviceSerialPortConfiguration{
 		consoleConfig,
@@ -108,15 +108,16 @@ func (vm VM) Run() error {
 	// network
 	macAddr, err := net.ParseMAC(*y.MACAddress)
 
-	natAttachment := vz.NewNATNetworkDeviceAttachment()
-	networkConfig := vz.NewVirtioNetworkDeviceConfiguration(natAttachment)
-	networkConfig.SetMACAddress(vz.NewMACAddress(macAddr))
+	natAttachment, err := vz.NewNATNetworkDeviceAttachment()
+	networkConfig, err := vz.NewVirtioNetworkDeviceConfiguration(natAttachment)
+	address, err := vz.NewMACAddress(macAddr)
+	networkConfig.SetMACAddress(address)
 
 	config.SetNetworkDevicesVirtualMachineConfiguration([]*vz.VirtioNetworkDeviceConfiguration{
 		networkConfig,
 	})
 	// entropy
-	entropyConfig := vz.NewVirtioEntropyDeviceConfiguration()
+	entropyConfig, err := vz.NewVirtioEntropyDeviceConfiguration()
 	config.SetEntropyDevicesVirtualMachineConfiguration([]*vz.VirtioEntropyDeviceConfiguration{
 		entropyConfig,
 	})
@@ -125,33 +126,37 @@ func (vm VM) Run() error {
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	ciDataConfig := vz.NewVirtioBlockDeviceConfiguration(ciDataIso)
+	ciDataConfig, err := vz.NewVirtioBlockDeviceConfiguration(ciDataIso)
 
 	diskImageAttachment, err := vz.NewDiskImageStorageDeviceAttachment(diskPath, false)
 	if err != nil {
 		logrus.Fatal(err)
 	}
-	storageDeviceConfig := vz.NewVirtioBlockDeviceConfiguration(diskImageAttachment)
+	storageDeviceConfig, err := vz.NewVirtioBlockDeviceConfiguration(diskImageAttachment)
 	config.SetStorageDevicesVirtualMachineConfiguration([]vz.StorageDeviceConfiguration{
 		storageDeviceConfig,
 		ciDataConfig,
 	})
 
 	// traditional memory balloon device which allows for managing guest memory. (optional)
+	configuration, err := vz.NewVirtioTraditionalMemoryBalloonDeviceConfiguration()
 	config.SetMemoryBalloonDevicesVirtualMachineConfiguration([]vz.MemoryBalloonDeviceConfiguration{
-		vz.NewVirtioTraditionalMemoryBalloonDeviceConfiguration(),
+		configuration,
 	})
 
 	// socket device (optional)
+	deviceConfiguration, err := vz.NewVirtioSocketDeviceConfiguration()
 	config.SetSocketDevicesVirtualMachineConfiguration([]vz.SocketDeviceConfiguration{
-		vz.NewVirtioSocketDeviceConfiguration(),
+		deviceConfiguration,
 	})
 
 	mounts := make([]vz.DirectorySharingDeviceConfiguration, len(vm.MacVZYaml.Mounts))
 	for i, mount := range y.Mounts {
 		expand, _ := homedir.Expand(mount.Location)
-		config := vz.NewVirtioFileSystemDeviceConfiguration(expand)
-		config.SetDirectoryShare(vz.NewSingleDirectoryShare(vz.NewSharedDirectory(expand, !*mount.Writable)))
+		config, _ := vz.NewVirtioFileSystemDeviceConfiguration(expand)
+		directory, _ := vz.NewSharedDirectory(expand, !*mount.Writable)
+		share, _ := vz.NewSingleDirectoryShare(directory)
+		config.SetDirectoryShare(share)
 		mounts[i] = config
 	}
 	config.SetDirectorySharingDevicesVirtualMachineConfiguration(mounts)
@@ -161,15 +166,11 @@ func (vm VM) Run() error {
 		logrus.Fatal("validation failed", err)
 	}
 
-	machine := vz.NewVirtualMachine(config)
+	machine, err := vz.NewVirtualMachine(config)
 
 	errCh := make(chan error, 1)
 
-	machine.Start(func(err error) {
-		if err != nil {
-			errCh <- err
-		}
-	})
+	machine.Start()
 
 	for {
 		select {
@@ -203,7 +204,9 @@ func (vm VM) Run() error {
 					logrus.Fatal("Failed to create listener", err)
 				}
 				for _, socketDevice := range machine.SocketDevices() {
-					socketDevice.SetSocketListenerForPort(yamuxListener, 47)
+					listen, err := socketDevice.Listen(47)
+					accept, err := listen.Accept()
+
 				}
 				logrus.Println("start VM is running")
 			}
