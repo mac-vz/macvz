@@ -1,4 +1,3 @@
-[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/mac-vz/macvz/Build%20and%20Test?label=Build%20and%20Test&logo=github)](https://github.com/mac-vz/macvz/actions/workflows/build.yml)
 [![Go Report Card](https://goreportcard.com/badge/mac-vz/macvz)](https://goreportcard.com/report/github.com/mac-vz/macvz)
 [![Codacy grade](https://img.shields.io/codacy/grade/40eae50295114eabba6b12b7372bed81?&logo=codacy)](https://www.codacy.com/gh/mac-vz/macvz/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=mac-vz/macvz&amp;utm_campaign=Badge_Grade)
 [![GitHub](https://img.shields.io/github/license/mac-vz/macvz?color=brightgreen)](https://github.com/mac-vz/macvz/blob/main/LICENSE)
